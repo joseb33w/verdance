@@ -1,0 +1,7 @@
+/out/
+/godot
+*.tmp
+.gogi-cache/
+/verify/
+/playbooks/
+.godot/

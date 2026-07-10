@@ -1,0 +1,20 @@
+{
+  "vehicles": {
+    "roadster": [250, 291], "citycar": [244, 300], "motorcycle": [245, 291], "truck": [252, 300],
+    "tank": [392, 179], "buggy": [184, 189],
+    "plane": [264, 344], "glider": [280, 344], "helicopter": [392, 312],
+    "speedboat": [600, 280], "ferry": [632, 296],
+    "stag": [136, 120], "ram": [659, 701], "beetle": [232, 536], "raptor": [344, 504],
+    "serpent": [752, 440], "dragon": [712, 568]
+  },
+  "beacons": {
+    "forest": [344, 88], "lake": [589, 296], "spire": [365, 269], "frost": [712, 584], "core": [312, 248]
+  },
+  "regions": [
+    {"id": "city", "name": "The Spire City", "bbox": [14, 11, 24, 19], "weather": "clear"},
+    {"id": "frostpeak", "name": "Frostpeak", "bbox": [33, 29, 49, 49], "weather": "snow"},
+    {"id": "frostpeak", "name": "Frostpeak", "bbox": [38, 0, 47, 6], "weather": "snow"},
+    {"id": "lake", "name": "The Lake", "bbox": [30, 8, 49, 31], "weather": "fog"},
+    {"id": "forest", "name": "The Forest", "bbox": [0, 0, 49, 49], "weather": "clear"}
+  ]
+}
