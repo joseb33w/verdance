@@ -1,0 +1,75 @@
+{ "quests": [
+  { "id": "q_forest", "name": "The Forest Beacon",
+    "steps": [
+      { "objective": {"type": "talk_to", "target": "elda"},
+        "desc": "Speak with Ranger Elda at the outpost", "target": [88, 88] },
+      { "objective": {"type": "set_flag", "target": "tamed_a_mount"},
+        "desc": "Tame the wild Greatstag in the glade (walk up + USE to ride)", "target": [136, 120] },
+      { "objective": {"type": "reach_area", "target": "c21_5"},
+        "desc": "Ride east to the Forest Beacon hill", "target": [344, 88] },
+      { "objective": {"type": "kill_count", "target": "fade_stalker", "count": 3},
+        "desc": "Drive off the Fade-stalkers", "target": [344, 88] },
+      { "objective": {"type": "collect", "target": "lightshard_forest"},
+        "desc": "Take the Lightshard from the beacon chest", "target": [344, 88] },
+      { "objective": {"type": "set_flag", "target": "beacon_forest_lit"},
+        "desc": "Relight the Forest Beacon (USE at the brazier)", "target": [344, 88] }
+    ],
+    "rewards": { "xp": 150, "gold": 80 },
+    "on_complete_flags": ["forest_restored"] },
+
+  { "id": "q_lake", "name": "Across the Mistwater",
+    "steps": [
+      { "objective": {"type": "reach_area", "target": "c36_17"},
+        "desc": "Follow the highway to the lake docks", "target": [584, 280] },
+      { "objective": {"type": "reach_area", "target": "c46_19"},
+        "desc": "Take a boat across to the island museum", "target": [744, 312] },
+      { "objective": {"type": "collect", "target": "lightshard_lake"},
+        "desc": "Find the Lightshard in the museum galleries", "target": [744, 312] },
+      { "objective": {"type": "set_flag", "target": "beacon_lake_lit"},
+        "desc": "Relight the Lake Beacon by the docks", "target": [589, 296] }
+    ],
+    "rewards": { "xp": 170, "gold": 90 },
+    "on_complete_flags": ["lake_restored"] },
+
+  { "id": "q_spire", "name": "The Neon Ascent",
+    "steps": [
+      { "objective": {"type": "reach_area", "target": "c16_12"},
+        "desc": "Drive the highway into the city, to the Grand Mall", "target": [264, 200] },
+      { "objective": {"type": "talk_to", "target": "cass"},
+        "desc": "Ask guide Cass where the Lightshard is kept", "target": [264, 216] },
+      { "objective": {"type": "reach_area", "target": "c22_16"},
+        "desc": "Cross the fair to the City Museum", "target": [360, 264] },
+      { "objective": {"type": "collect", "target": "lightshard_spire"},
+        "desc": "Recover the Lightshard exhibit", "target": [360, 264] },
+      { "objective": {"type": "set_flag", "target": "beacon_spire_lit"},
+        "desc": "Relight the Spire Beacon on the museum plaza", "target": [365, 269] }
+    ],
+    "rewards": { "xp": 190, "gold": 100 },
+    "on_complete_flags": ["spire_restored"] },
+
+  { "id": "q_frost", "name": "The Frozen Relay",
+    "steps": [
+      { "objective": {"type": "reach_area", "target": "c41_43"},
+        "desc": "Ride south into the snows, to the Frostpeak base camp", "target": [664, 696] },
+      { "objective": {"type": "reach_area", "target": "c45_36"},
+        "desc": "Climb the icy switchbacks to the Summit Relay", "target": [728, 584] },
+      { "objective": {"type": "kill_count", "target": "frost_wraith", "count": 4},
+        "desc": "Survive the frost-wraiths", "target": [712, 584] },
+      { "objective": {"type": "collect", "target": "lightshard_frost"},
+        "desc": "Take the Lightshard from the relay chest", "target": [728, 584] },
+      { "objective": {"type": "set_flag", "target": "beacon_frost_lit"},
+        "desc": "Relight the Frostpeak Beacon", "target": [712, 584] }
+    ],
+    "rewards": { "xp": 220, "gold": 120 },
+    "on_complete_flags": ["frost_restored"] },
+
+  { "id": "q_finale", "name": "The Last Light",
+    "steps": [
+      { "objective": {"type": "reach_area", "target": "c19_15"},
+        "desc": "Fly the skyway to the Spire Core", "target": [312, 248] },
+      { "objective": {"type": "set_flag", "target": "world_restored"},
+        "desc": "Ascend the Core floor by floor and stabilize it (USE at the crown)", "target": [312, 248] }
+    ],
+    "rewards": { "xp": 400, "gold": 250 },
+    "on_complete_flags": ["verdance_restored"] }
+] }
