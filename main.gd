@@ -85,6 +85,7 @@ var _hero_anim := ""                    # current semantic anim kind (idle/walk/
 var _hero_attack_t := 0.0               # remaining melee-attack-clip hold (s)
 var _hurt_flash: ColorRect = null       # brief red screen flash on taking damage (NON-modal feedback,
                                         # never a popup/banner — a hit must READ without interrupting play)
+var _hero_avatar: Node3D = null         # the attached hero GLB — hidden when the camera collapses onto it
 
 var rpg: RpgState
 var director: VerdanceDirector
@@ -519,6 +520,12 @@ func _process(delta: float) -> void:
 		cam_rig.global_position = player.global_position + Vector3(0.0, head, 0.0)
 		cam_rig.rotation.y = cam_yaw
 		cam_spring.rotation.x = cam_pitch
+		# SpringArm collapse guard: when a prop/wall squeezes the camera onto the player, the view
+		# renders from INSIDE the hero mesh (a full-screen smear of cape/armor). Hide the avatar
+		# while the camera is that close — standard near-camera treatment.
+		if _hero_avatar != null and is_instance_valid(_hero_avatar):
+			var cd := cam.global_position.distance_to(cam_rig.global_position)
+			_hero_avatar.visible = cd > 1.35
 	# Wave 4: attack timers + the melee swing visual moved HERE from the two physics paths
 	# (which early-return while DRIVING) so a MOUNTED rider's swing still animates/decays and
 	# the ranged cooldown keeps ticking — riders fire too. Same 0.22s window and the exact
@@ -541,26 +548,18 @@ func _process(delta: float) -> void:
 func _update_stats() -> void:
 	_refresh_stats()
 	if hp_bar and rpg:
-		hp_bar.size.x = 320.0 * clamp(rpg.hp / rpg.max_hp, 0.0, 1.0)
+		hp_bar.size.x = 220.0 * clamp(rpg.hp / rpg.max_hp, 0.0, 1.0)
 
 
 func _refresh_stats() -> void:
 	if rpg == null:
 		return
-	var streamer = chunk_manager if chunk_mode else scene_manager
-	var alive := 0
-	if streamer:
-		for e in streamer.enemies:
-			if is_instance_valid(e) and not e.dead:
-				alive += 1
-	var area: String = String(streamer.current_id) if streamer != null else ""
-	var obj := quest.current_objective() if quest else ""
-	if obj.length() > 72:
-		obj = obj.substr(0, 69) + "..."   # the compass carries the live step; keep the HUD line tight
-	stats.text = "Lv %d  HP %d/%d  XP %d/%d  Gold %d  Wpn:%s\nArea:%s  enemies %d  fps %d\nInv: %s\n%s" % [
+	var inv := rpg.inventory_summary()
+	if inv.length() > 46:
+		inv = inv.substr(0, 43) + "..."
+	stats.text = "Lv %d  HP %d/%d  XP %d/%d  Gold %d\nWpn: %s\nInv: %s" % [
 		rpg.level, int(rpg.hp), int(rpg.max_hp), rpg.xp, rpg.xp_next, rpg.gold,
-		rpg.item_name(rpg.equipped_weapon), area, alive, Engine.get_frames_per_second(),
-		rpg.inventory_summary(), obj]
+		rpg.item_name(rpg.equipped_weapon), inv]
 
 
 # ---------------- combat / hooks ----------------
@@ -1307,6 +1306,7 @@ func _attach_hero_model() -> void:
 		return
 	node.name = "GogiHeroAvatar"
 	player.add_child(node)
+	_hero_avatar = node
 	# Meshy characters carry a 0.01-scale Armature over a cm-unit skeleton, so the MESH AABB is
 	# unreliable (near-zero) — measure a rigged character by its skeleton REST bounds instead and
 	# fall back to the mesh AABB only for unrigged models.
@@ -1482,13 +1482,13 @@ func _build_hud() -> void:
 	hud_layer.add_child(stats)
 	var bg := ColorRect.new()
 	bg.color = Color(0, 0, 0, 0.5)
-	bg.position = Vector2(12, 120)
-	bg.size = Vector2(320, 20)
+	bg.position = Vector2(12, 98)
+	bg.size = Vector2(220, 14)
 	hud_layer.add_child(bg)
 	hp_bar = ColorRect.new()
 	hp_bar.color = Color(0.85, 0.25, 0.25)
-	hp_bar.position = Vector2(12, 120)
-	hp_bar.size = Vector2(320, 20)
+	hp_bar.position = Vector2(12, 98)
+	hp_bar.size = Vector2(220, 14)
 	hud_layer.add_child(hp_bar)
 	# full-screen red flash for damage feedback (starts transparent; _flash_hurt pulses it). Ignores
 	# mouse so it never eats a HUD button press, and it's non-modal — just juice, no popup.

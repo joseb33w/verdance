@@ -619,7 +619,7 @@ func _build_overlay_ui() -> void:
 	_region_lbl.add_theme_font_size_override("font_size", 20)
 	_region_lbl.add_theme_color_override("font_color", Color(0.55, 0.9, 0.82, 0.9))
 	_region_lbl.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_region_lbl.offset_top = 8.0
+	_region_lbl.offset_top = 118.0   # below the compact stats block + hp bar (no top-strip collisions)
 	main.hud_layer.add_child(_region_lbl)
 	_compass = Label.new()
 	_compass.text = ""
@@ -627,7 +627,7 @@ func _build_overlay_ui() -> void:
 	_compass.add_theme_font_size_override("font_size", 19)
 	_compass.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	_compass.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_compass.offset_top = 34.0
+	_compass.offset_top = 144.0
 	main.hud_layer.add_child(_compass)
 	_toast = Label.new()
 	_toast.text = ""
@@ -635,7 +635,7 @@ func _build_overlay_ui() -> void:
 	_toast.add_theme_font_size_override("font_size", 26)
 	_toast.add_theme_color_override("font_color", Color(0.95, 1.0, 0.9))
 	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_toast.offset_top = 120.0
+	_toast.offset_top = 200.0
 	_toast.modulate.a = 0.0
 	main.hud_layer.add_child(_toast)
 	main.hud_layer.visible = false   # hidden behind the title screen until a mode is chosen
@@ -827,8 +827,10 @@ func _on_js_teleport(args: Array) -> void:
 	var y := 2.0
 	if main.chunk_manager != null and main.chunk_manager.terrain != null:
 		y = float(main.chunk_manager.terrain.height(x, z)) + 0.4
+	if args.size() >= 3:
+		y = float(args[2])   # explicit height (QA: interior floors, rooftops)
 	(main.player as Node3D).global_position = Vector3(x, y, z)
-	print("GOGI_TP ", x, " ", z)
+	print("GOGI_TP ", x, " ", z, " ", y)
 
 
 func _on_js_use(_args: Array) -> void:

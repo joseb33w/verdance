@@ -37,20 +37,24 @@ world["vehicles"] = [
     {"pos": V["citycar"],    "profile": "car",  "name": "City Car", "color": [0.85, 0.3, 0.25]},
     {"pos": V["buggy"],      "profile": "car",  "model": f"{M}/buggy.glb",      "name": "Dune Buggy"},
     {"pos": V["truck"],      "profile": "car",  "model": f"{M}/truck.glb",      "name": "Utility Truck"},
-    {"pos": V["motorcycle"], "profile": "car",  "model": f"{M}/motorcycle.glb", "name": "Motorcycle", "scale": 2.4},
+    {"pos": V["motorcycle"], "profile": "car",  "model": f"{M}/motorcycle.glb", "name": "Motorcycle", "scale": 2.4,
+     "seat": [0.0, 0.95, -0.1]},
     {"pos": V["tank"],       "profile": "tank", "model": f"{M}/tank.glb",       "name": "Tank"},
     # --- water ---
-    {"pos": V["speedboat"],  "profile": "boat", "model": f"{M}/speedboat.glb",  "name": "Speedboat"},
-    {"pos": V["ferry"],      "profile": "boat", "model": f"{M}/ferry.glb",      "name": "Lake Ferry", "scale": 11.0},
+    {"pos": V["speedboat"],  "profile": "boat", "model": f"{M}/speedboat.glb",  "name": "Speedboat",
+     "seat": [0.0, 0.8, -0.8]},
+    {"pos": V["ferry"],      "profile": "boat", "model": f"{M}/ferry.glb",      "name": "Lake Ferry", "scale": 9.0,
+     "seat": [0.0, 2.3, 0.0]},
     # --- air ---
     {"pos": V["plane"],      "profile": "plane", "model": f"{M}/plane.glb",     "name": "Bush Plane", "scale": 7.0},
-    {"pos": V["helicopter"], "profile": "plane", "model": f"{M}/helicopter.glb", "name": "Helicopter", "scale": 6.0},
+    {"pos": V["helicopter"], "profile": "plane", "model": f"{M}/helicopter.glb", "name": "Helicopter", "scale": 6.0,
+     "seat": [0.0, 1.1, 0.4]},
     {"pos": V["glider"],     "profile": "plane", "model": f"{M}/glider.glb",    "name": "Jet Glider", "scale": 6.5},
     # --- wild mounts (tame by riding) ---
     {"pos": V["stag"],    "profile": "horse",  "model": f"{M}/stag.glb",  "name": "Wild Greatstag",
      "stable_id": "stag", "tamed_name": "Greatstag", "scale": 2.6},
     {"pos": V["dragon"],  "profile": "dragon", "name": "Wild Skydrake",
-     "stable_id": "dragon", "tamed_name": "Skydrake"},
+     "stable_id": "dragon", "tamed_name": "Skydrake", "scale": 4.2},
     {"pos": V["serpent"], "profile": "horse",  "model": "animals/easy_Snake.glb", "name": "Wild Mirewyrm",
      "stable_id": "serpent", "tamed_name": "Mirewyrm", "scale": 4.5},
     {"pos": V["raptor"],  "profile": "horse",  "model": "animals/dinosaur_Velociraptor.glb", "name": "Wild Swiftclaw",
@@ -73,6 +77,15 @@ world["beacons"] = [
 ]
 
 world["regions"] = sites["regions"]
+
+# P0 (QA): interiors only shell on the "vertical" profile — a taper Spire Core is a sealed
+# solid and the campaign finale is unreachable. Vertical keeps it the tallest tower AND
+# builds the 10 storeys of auto-stairs to the crown.
+for c in world["cells"]:
+    if c.get("cell") == [19, 15]:
+        for s in c.get("structures", []):
+            if s.get("interior") and s.get("profile") != "vertical":
+                s["profile"] = "vertical"
 
 # Meshy hero skyline piece on the helipad plaza (offset off the helicopter spawn at centre)
 for c in world["cells"]:

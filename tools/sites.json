@@ -3,7 +3,7 @@
     "roadster": [250, 291], "citycar": [244, 300], "motorcycle": [245, 291], "truck": [252, 300],
     "tank": [392, 179], "buggy": [184, 189],
     "plane": [264, 344], "glider": [280, 344], "helicopter": [392, 312],
-    "speedboat": [600, 280], "ferry": [616, 296],
+    "speedboat": [600, 280], "ferry": [632, 296],
     "stag": [136, 120], "ram": [659, 701], "beetle": [232, 536], "raptor": [344, 504],
     "serpent": [752, 440], "dragon": [712, 568]
   },
