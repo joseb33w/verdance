@@ -77,7 +77,19 @@ world["regions"] = sites["regions"]
 # Meshy hero skyline piece on the helipad plaza (offset off the helicopter spawn at centre)
 for c in world["cells"]:
     if c.get("cell") == [24, 19] and not c.get("landmark"):
-        c["landmark"] = {"url": f"{M}/spire_core.glb", "pos": [-5, -5], "collider": "box", "scale": 1.0}
+        c["landmark"] = {"url": f"{M}/spire_core.glb", "pos": [-5, -5], "collider": "box", "scale": 24.0}
+
+# Meshy statics ship ~1.9m-normalized — scale the beacons up to their intended ~9m presence
+# (prop/landmark "scale" is a multiplier, unlike the vehicles' target-length metres)
+for c in world["cells"]:
+    lm = c.get("landmark")
+    if lm and "beacon.glb" in str(lm.get("url", "")):
+        lm["scale"] = 4.7
+    if lm and "spire_core.glb" in str(lm.get("url", "")):
+        lm["scale"] = 24.0
+    for p in c.get("props", []) or []:
+        if "beacon.glb" in str(p.get("url", "")):
+            p["scale"] = 4.7
 
 # the director owns time-of-day + region weather; the sky block only sets the pre-title look
 world["sky"] = {"time": "day", "weather": "clear"}

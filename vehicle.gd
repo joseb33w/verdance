@@ -263,6 +263,31 @@ static func default_model_path(profile_name: String) -> String:
 	return String(MOUNT_MODELS.get(profile_name, ""))
 
 
+# Skeleton rest-pose bounds x the cumulative node scale up to `model` — the true authored size
+# of a skinned creature (the mesh AABB under-reads when the armature scale is baked into the skin).
+func _skel_span(model: Node3D) -> Vector3:
+	var sks := model.find_children("*", "Skeleton3D", true, false)
+	if sks.is_empty():
+		return Vector3.ZERO
+	var s := sks[0] as Skeleton3D
+	if s.get_bone_count() == 0:
+		return Vector3.ZERO
+	var lo := Vector3(1e9, 1e9, 1e9)
+	var hi := Vector3(-1e9, -1e9, -1e9)
+	for i in s.get_bone_count():
+		var g: Vector3 = s.get_bone_global_rest(i).origin
+		lo = lo.min(g)
+		hi = hi.max(g)
+	if hi.x <= lo.x:
+		return Vector3.ZERO
+	var cum := Vector3.ONE
+	var w: Node = s
+	while w != null and w != model and w is Node3D:
+		cum *= (w as Node3D).scale
+		w = w.get_parent()
+	return (hi - lo) * cum
+
+
 # Public "is this a creature MOUNT (horse/bull/dragon)?" — main.gd stows the weapon visual while
 # DRIVING A VEHICLE but keeps it on a mount (firing from the saddle is a Wave-4 feature). Pure
 # accessor over the setup-time flag.
@@ -363,8 +388,22 @@ func _mount_model(spec: Dictionary, model: Node3D) -> AABB:
 	if model != null:
 		var ab := _world_aabb(model)
 		var dim := ab.size.z if (_is_mount and ab.size.z > 0.001) else maxf(ab.size.x, ab.size.z)
+		# SKINNED creatures (library animals / rigged mounts): a runtime-parsed skinned mesh
+		# reports its RAW bind AABB (the armature's x100 scale is baked into the skin), so the
+		# mesh-AABB dim under-reads ~100x and the normalize blows the creature up into a giant.
+		# Bones carry the true size — measure by skeleton rest span instead.
+		var span := _skel_span(model) if _is_mount else Vector3.ZERO
+		if span.z > 0.05:
+			dim = span.z
 		if dim > 0.001:
 			model.scale *= target_len / dim
+		if span.z > 0.05:
+			var k := target_len / dim
+			var sz: Vector3 = span * k
+			model.position.y = 0.0
+			add_child(model)
+			_visual = model
+			return AABB(Vector3(-sz.x * 0.5, 0.0, -sz.z * 0.5), sz)   # bone-derived bounds, base at origin
 		ab = _world_aabb(model)
 		model.position.y = -maxf(0.0, ab.position.y)   # base -> origin (drop-only, traffic idiom)
 		add_child(model)
