@@ -66,6 +66,10 @@ func save(blob: Dictionary) -> void:
 		"Content-Type: application/json", "apikey: " + SB_ANON,
 		"Authorization: Bearer " + SB_ANON])
 	var body := JSON.stringify({"p_device": device_id, "p_data": blob})
+	if OS.has_feature("web"):
+		# QA visibility: the sandbox can't reach Supabase (TLS proxy), so expose the exact
+		# blob each save sends — verify reads it and replays it through gogiInjectSave.
+		JavaScriptBridge.eval("window.__gogiLastSave=" + JSON.stringify(blob) + ";", true)
 	if req.request(SB_URL + "/rest/v1/rpc/" + RPC_SAVE, hdrs, HTTPClient.METHOD_POST, body) != OK:
 		req.queue_free()
 		_busy = false

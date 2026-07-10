@@ -107,6 +107,8 @@ func _physics_process(delta: float) -> void:
 		_play(c_attack, false)
 		if player.has_method("take_damage"):
 			player.call("take_damage", 9.0)
+		elif is_instance_valid(world) and world.has_method("take_damage"):
+			world.call("take_damage", 9.0)   # the code-built player body carries no script — main owns HP
 
 	# ALWAYS seek a DISTINCT slot around the player -> enemies encircle, not bunch
 	var slot := ppos + Vector3(cos(slot_angle), 0.0, sin(slot_angle)) * surround_radius

@@ -37,6 +37,7 @@ var _day_idx := 0
 var _day_t := 0.0
 var _victory := false
 var _victory_shown := false
+var _granted_toast := false
 var _world_ready := false
 var _saved_blob: Dictionary = {}
 var _restore_pending := false
@@ -48,6 +49,11 @@ var _stable_panel: PanelContainer = null
 var _toast_q: Array = []
 var _toast_busy := false
 var _js_verdance_cb = null
+var _js_tp_cb = null
+var _js_use_cb = null
+var _js_attack_cb = null
+var _js_mode_cb = null
+var _js_inject_cb = null
 
 
 func setup(m: Node3D) -> void:
@@ -97,6 +103,18 @@ func world_ready() -> void:
 	_apply_wx(true)
 	if _restore_pending:
 		_apply_world_restore()
+	# a mode picked BEFORE the world finished streaming re-runs its grants now that
+	# weapons/vehicles/quests exist (both paths are idempotent)
+	if mode == "free":
+		_grant_all()
+	elif mode == "campaign" and _chain.is_empty():
+		_start_campaign()
+	# ?mode=free|campaign deep-link: jump straight into gameplay (verify/QA + shareable links)
+	if mode == "" and OS.has_feature("web"):
+		var m = JavaScriptBridge.eval("(new URLSearchParams(window.location.search)).get('mode') || ''", true)
+		var ms := String(m) if typeof(m) == TYPE_STRING else ""
+		if ms == "free" or ms == "campaign":
+			_on_mode(ms)
 
 
 # ---------------- mode selection ----------------
@@ -129,11 +147,12 @@ func _start_campaign() -> void:
 	campaign_idx = 0
 	if _chain.size() > 0:
 		quest.start(_chain[0])
-	toast("The Fade spreads. Relight the four Beacons, Warden.")
+		toast("The Fade spreads. Relight the four Beacons, Warden.")
 
 
 func _grant_all() -> void:
-	# every weapon in hand, every mount tamed, the whole world open
+	# every weapon in hand, every mount tamed, the whole world open (idempotent — re-run
+	# once the world finishes loading if the mode was picked early)
 	var best_id := ""
 	var best_dmg := -1.0
 	for id in rpg.weapons:
@@ -150,7 +169,9 @@ func _grant_all() -> void:
 		if sid != "" and not stable.has(sid):
 			stable.append(sid)
 	_rename_tamed()
-	toast("Free Roam: the Four Reaches are open. Every mount answers you.")
+	if not _granted_toast:
+		_granted_toast = true
+		toast("Free Roam: the Four Reaches are open. Every mount answers you.")
 
 
 # ---------------- campaign chain ----------------
@@ -659,7 +680,7 @@ func _update_compass() -> void:
 		var tgt: Array = step.get("target", [])
 		var line := String(step.get("desc", ""))
 		if tgt.size() >= 2 and main.player != null:
-			var to := Vector3(float(tgt[0]), 0.0, float(tgt[1])) - main.player.global_position
+			var to: Vector3 = Vector3(float(tgt[0]), 0.0, float(tgt[1])) - (main.player as Node3D).global_position
 			to.y = 0.0
 			var dist := int(to.length())
 			var comp := _compass_dir(to)
@@ -768,23 +789,119 @@ func _apply_world_restore() -> void:
 func _setup_js_hook() -> void:
 	if not OS.has_feature("web"):
 		return
-	_js_verdance_cb = JavaScriptBridge.create_callback(_on_js_verdance)
+	# NOTE: create_callback ARG marshalling works, but RETURN values do not — so state is
+	# PUSHED into window.__gogiVerdance on a short timer and gogiVerdance() just reads it.
+	_js_tp_cb = JavaScriptBridge.create_callback(_on_js_teleport)
+	_js_use_cb = JavaScriptBridge.create_callback(_on_js_use)
+	_js_attack_cb = JavaScriptBridge.create_callback(_on_js_attack)
+	_js_mode_cb = JavaScriptBridge.create_callback(_on_js_mode)
 	var win = JavaScriptBridge.get_interface("window")
 	if win != null:
-		win.__gogiVerdanceRaw = _js_verdance_cb
+		win.gogiTeleport = _js_tp_cb      # QA/verify knob: gogiTeleport(x, z)
+		win.gogiUse = _js_use_cb          # QA/verify knob: press USE
+		win.gogiAttack = _js_attack_cb    # QA/verify knob: press ATTACK
+		win.gogiChooseMode = _js_mode_cb  # QA/verify knob: gogiChooseMode("free"|"campaign"|"continue")
+		_js_inject_cb = JavaScriptBridge.create_callback(_on_js_inject_save)
+		win.gogiInjectSave = _js_inject_cb  # QA: replay a save blob (sandbox can't reach Supabase)
 	JavaScriptBridge.eval(
-		"window.gogiVerdance=function(){var s=window.__gogiVerdanceRaw();return s?JSON.parse(s):null;};", true)
+		"window.gogiVerdance=function(){return window.__gogiVerdance||null;};", true)
+	var t := Timer.new()
+	t.wait_time = 0.5
+	t.autostart = true
+	t.timeout.connect(_push_js_state)
+	add_child(t)
+	_push_js_state()
 
 
-func _on_js_verdance(_args: Array) -> String:
+func _push_js_state() -> void:
+	if not OS.has_feature("web"):
+		return
+	JavaScriptBridge.eval("window.__gogiVerdance=" + _state_json() + ";", true)
+
+
+func _on_js_teleport(args: Array) -> void:
+	if args.size() < 2 or main.player == null:
+		return
+	var x := float(args[0])
+	var z := float(args[1])
+	var y := 2.0
+	if main.chunk_manager != null and main.chunk_manager.terrain != null:
+		y = float(main.chunk_manager.terrain.height(x, z)) + 0.4
+	(main.player as Node3D).global_position = Vector3(x, y, z)
+	print("GOGI_TP ", x, " ", z)
+
+
+func _on_js_use(_args: Array) -> void:
+	if main.interaction != null:
+		main.interaction.try_use()
+
+
+func _on_js_attack(_args: Array) -> void:
+	main._attack()
+
+
+func _on_js_mode(args: Array) -> void:
+	if args.size() >= 1:
+		_on_mode(String(args[0]))
+
+
+func _on_js_inject_save(args: Array) -> void:
+	if args.size() < 1:
+		return
+	var parsed: Variant = JSON.parse_string(String(args[0]))
+	if parsed is Dictionary:
+		_saved_blob = parsed
+		print("GOGI_SAVE_INJECTED")
+
+
+func _state_json() -> String:
 	var lit: Array = []
 	for entry in _beacons:
 		if rpg.has_flag(String(entry["flag"])):
 			lit.append(String(entry["id"]))
+	var alive := 0
+	var near_hp := -1.0
+	var near_d := 1e9
+	if main.chunk_manager != null and main.player != null:
+		for e in main.chunk_manager.enemies:
+			if is_instance_valid(e) and not e.dead:
+				alive += 1
+				var d: float = (e as Node3D).global_position.distance_to((main.player as Node3D).global_position)
+				if d < near_d:
+					near_d = d
+					near_hp = float(e.hp)
+	var px := 0.0
+	var py := 0.0
+	var pz := 0.0
+	var in_veh := false
+	var veh_prof := ""
+	if main.player != null:
+		var pp: Vector3 = (main.player as Node3D).global_position
+		px = pp.x
+		py = pp.y
+		pz = pp.z
+	if main.active_vehicle != null and is_instance_valid(main.active_vehicle):
+		in_veh = true
+		veh_prof = String(main.active_vehicle.profile)
+	var use_label := ""
+	if main.interaction != null:
+		var nit = main.interaction._nearest(2.9)
+		if nit != null:
+			use_label = String(nit.label)
 	return JSON.stringify({
 		"mode": mode, "title_open": input_locked(), "region": _cur_region,
+		"dialog_open": main.interaction != null and bool(main.interaction.active),
+		"talks": int(main.interaction.talks) if main.interaction != null else 0,
+		"max_hp": rpg.max_hp,
+		"use_label": use_label,
 		"lit": lit, "stable": stable, "discovered": discovered,
 		"campaign_idx": campaign_idx, "victory": _victory,
+		"hp": rpg.hp, "gold": rpg.gold, "equipped": rpg.equipped_weapon,
+		"inventory": rpg.inventory, "flags": rpg.flags.keys(),
+		"enemies_alive": alive, "nearest_enemy_hp": near_hp, "nearest_enemy_d": near_d,
+		"x": px, "y": py, "z": pz,
+		"in_vehicle": in_veh, "vehicle_profile": veh_prof,
+		"swimming": bool(main.swimming),
 	})
 
 

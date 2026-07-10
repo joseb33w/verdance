@@ -1455,10 +1455,14 @@ func _place_scatter(root: Node, ref, centre: Vector3, half: float) -> void:
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.mesh = mesh
 		mm.instance_count = cnt
-		var drop := maxf(0.0, mesh.get_aabb().position.y)   # source-mesh base offset
+		# bake the GLB's node transform (many library assets: 1/100 verts under a x100 node)
+		# into every instance, or the scatter renders centimetre-tall (the invisible-forest bug)
+		var mxf := _extract_mesh_xform(src as Node)
+		var tab: AABB = mxf * mesh.get_aabb()               # authored-size bounds
+		var drop := maxf(0.0, tab.position.y)               # source-mesh base offset
 		# SCALE SANITY: scatter is small ambient clutter — cap an oversized source
 		# mesh so a single instance can't fill the cell (footprint <= ~5u).
-		var msz := mesh.get_aabb().size
+		var msz := tab.size
 		var mdim := maxf(msz.x, msz.z)
 		var base := 1.0 if (mdim <= 5.0 or mdim < 0.001) else 5.0 / mdim
 		# solid entry (base-scaled mesh AABB max-dim >= SOLID_MIN_DIM, no opt-out) -> ONE
@@ -1477,7 +1481,7 @@ func _place_scatter(root: Node, ref, centre: Vector3, half: float) -> void:
 			body.position = centre
 		for i in range(cnt):
 			var sj := randf_range(0.8, 1.2) * base
-			var b := Basis().rotated(Vector3.UP, randf() * TAU).scaled(Vector3(sj, sj, sj))
+			var b := Basis().rotated(Vector3.UP, randf() * TAU).scaled(Vector3(sj, sj, sj)) * mxf.basis
 			var spot := Vector2(randf_range(-half + 1.0, half - 1.0), randf_range(-half + 1.0, half - 1.0))
 			var sy := -drop * sj + _ground_y(centre.x + spot.x, centre.z + spot.y)   # ride the terrain
 			mm.set_instance_transform(i, Transform3D(b, Vector3(spot.x, sy, spot.y)))
@@ -1486,9 +1490,9 @@ func _place_scatter(root: Node, ref, centre: Vector3, half: float) -> void:
 				var bx := BoxShape3D.new()
 				bx.size = msz * sj   # scale baked into the SHAPE (a scaled CollisionShape3D is unsupported)
 				cs.shape = bx
-				# same yaw + spot as the instance, box centred on the instance's mesh-AABB centre
+				# same yaw + spot as the instance, box centred on the instance's authored-AABB centre
 				cs.transform = Transform3D(Basis(b.get_rotation_quaternion()),
-					Vector3(spot.x, sy, spot.y) + b * mesh.get_aabb().get_center())
+					Vector3(spot.x, sy, spot.y) + Basis(b.get_rotation_quaternion()) * (tab.get_center() * sj))
 				body.add_child(cs)
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
@@ -1526,6 +1530,26 @@ func _extract_mesh(scene: Node) -> Mesh:
 		for c in nn.get_children():
 			stack.append(c)
 	return null
+
+
+# The cumulative node TRANSFORM from `scene` down to its first mesh. Many library GLBs
+# (q_unature, kenney_nature) keep vertices at 1/100 scale under a x100 node transform, so a
+# MultiMesh built from the RAW mesh renders centimetre-tall trees (the invisible-forest bug).
+# Bake this into every scatter instance so the mesh renders at its authored size.
+func _extract_mesh_xform(scene: Node) -> Transform3D:
+	var stack: Array = [[scene, Transform3D.IDENTITY]]
+	while not stack.is_empty():
+		var entry: Array = stack.pop_back()
+		var nn = entry[0]
+		var xf: Transform3D = entry[1]
+		if nn is Node3D:
+			xf = xf * (nn as Node3D).transform
+		if (nn is MeshInstance3D and (nn as MeshInstance3D).mesh != null) \
+				or (nn is ImporterMeshInstance3D and (nn as ImporterMeshInstance3D).mesh != null):
+			return xf
+		for c in nn.get_children():
+			stack.append([c, xf])
+	return Transform3D.IDENTITY
 
 
 # Stop a node's meshes casting Directional shadows (recursive). A skinned character (or a huge asset)

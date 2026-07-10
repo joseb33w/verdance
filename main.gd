@@ -555,6 +555,8 @@ func _refresh_stats() -> void:
 				alive += 1
 	var area: String = String(streamer.current_id) if streamer != null else ""
 	var obj := quest.current_objective() if quest else ""
+	if obj.length() > 72:
+		obj = obj.substr(0, 69) + "..."   # the compass carries the live step; keep the HUD line tight
 	stats.text = "Lv %d  HP %d/%d  XP %d/%d  Gold %d  Wpn:%s\nArea:%s  enemies %d  fps %d\nInv: %s\n%s" % [
 		rpg.level, int(rpg.hp), int(rpg.max_hp), rpg.xp, rpg.xp_next, rpg.gold,
 		rpg.item_name(rpg.equipped_weapon), area, alive, Engine.get_frames_per_second(),
@@ -586,6 +588,25 @@ func _attack() -> void:
 	_play_hero("attack")
 	AudioManager.play_sfx("attack")
 	var dmg := rpg.weapon_damage()
+	# aim assist: face the nearest in-range enemy first so a stationary tap connects
+	# (facing convention: characters FACE +Z, i.e. look_at(pos - dir))
+	var nearest: Node3D = null
+	var nd := 2.6
+	for e in streamer.enemies:
+		if not is_instance_valid(e) or e.dead:
+			continue
+		var toe: Vector3 = (e as Node3D).global_position - player.global_position
+		toe.y = 0.0
+		var dd := toe.length()
+		if dd > 0.05 and dd < nd:
+			nd = dd
+			nearest = e
+	if nearest != null:
+		var dir_to: Vector3 = (nearest.global_position - player.global_position)
+		dir_to.y = 0.0
+		if dir_to.length() > 0.05:
+			var lk: Vector3 = player.global_position - dir_to.normalized()
+			player.look_at(Vector3(lk.x, player.global_position.y, lk.z), Vector3.UP)
 	var fwd := player.global_transform.basis.z   # forward=+Z (look_at(pos-dir) faces +Z); -basis.z hit BEHIND (inverted cone)
 	for e in streamer.enemies:
 		if not is_instance_valid(e) or e.dead:
@@ -594,6 +615,35 @@ func _attack() -> void:
 		to.y = 0.0
 		if to.length() < 2.6 and fwd.dot(to.normalized()) > 0.25:
 			e.take_hit(dmg)
+			_hit_spark((e as Node3D).global_position + Vector3(0.0, 1.0, 0.0))
+
+
+# JUICE FLOOR: a one-shot spark burst at the melee impact point (ranged already puffs via
+# GProjectile) — a hit you can't SEE land reads as broken combat.
+func _hit_spark(at: Vector3) -> void:
+	var streamer = chunk_manager if chunk_mode else scene_manager
+	var root: Node3D = streamer.current_root if streamer != null else null
+	if root == null or not is_instance_valid(root):
+		return
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.amount = 16
+	p.lifetime = 0.45
+	p.initial_velocity_min = 3.0
+	p.initial_velocity_max = 7.0
+	p.direction = Vector3(0, 1, 0)
+	p.spread = 70.0
+	p.gravity = Vector3(0, -9, 0)
+	p.scale_amount_min = 0.06
+	p.scale_amount_max = 0.16
+	p.color = Color(1.0, 0.9, 0.5)
+	root.add_child(p)
+	p.global_position = at
+	p.emitting = true
+	var tw := p.create_tween()
+	tw.tween_interval(0.8)
+	tw.tween_callback(p.queue_free)
 
 
 # The live equipped-weapon def: GEquip stamps "gequip_def" on the character at equip time;
@@ -697,6 +747,8 @@ func _on_rpg_changed() -> void:
 func take_damage(d: float) -> void:
 	AudioManager.play_sfx("hurt")
 	_flash_hurt(false)   # brief red flash so the hit READS — non-modal, never a banner/popup/dialog
+	if director != null:
+		director._shake_cam(0.15)   # small kick so a hit taken lands physically, not just as a tint
 	if chunk_mode:
 		if rpg.take_damage(d):
 			rpg.hp = rpg.max_hp   # forgiving respawn in place (no area transition in chunk mode)
@@ -1255,14 +1307,46 @@ func _attach_hero_model() -> void:
 		return
 	node.name = "GogiHeroAvatar"
 	player.add_child(node)
-	var ab := _subtree_aabb(node)
-	if ab.size.y > 0.001:
-		node.scale *= HERO_HEIGHT / ab.size.y   # size to the capsule (~1.65 m tall)
-	_seat_avatar(node)                           # character GLB origins sit at the hips — feet to y=0
+	# Meshy characters carry a 0.01-scale Armature over a cm-unit skeleton, so the MESH AABB is
+	# unreliable (near-zero) — measure a rigged character by its skeleton REST bounds instead and
+	# fall back to the mesh AABB only for unrigged models.
+	var h := _char_height(node)
+	if h > 0.05:
+		node.scale *= HERO_HEIGHT / h
+	else:
+		var ab := _subtree_aabb(node)
+		if ab.size.y > 0.001:
+			node.scale *= HERO_HEIGHT / ab.size.y   # size to the capsule (~1.65 m tall)
+		_seat_avatar(node)                           # character GLB origins sit at the hips — feet to y=0
 	if _capsule_body != null and is_instance_valid(_capsule_body):
 		_capsule_body.visible = false            # the placeholder body gives way to the avatar
 	_play_hero_idle(node)
-	print("GOGI_HERO native avatar attached")
+	print("GOGI_HERO native avatar attached (char_h=%.3f)" % h)
+
+
+# Height of a RIGGED character = its skeleton's global-rest bone span scaled by the cumulative
+# node scale up to `node` (Meshy: cm-unit bones under a 0.01 Armature -> ~1.74m). 0.0 = no rig.
+func _char_height(node: Node3D) -> float:
+	var sks := node.find_children("*", "Skeleton3D", true, false)
+	if sks.is_empty():
+		return 0.0
+	var s := sks[0] as Skeleton3D
+	if s.get_bone_count() == 0:
+		return 0.0
+	var lo := 1e9
+	var hi := -1e9
+	for i in s.get_bone_count():
+		var gy := s.get_bone_global_rest(i).origin.y
+		lo = minf(lo, gy)
+		hi = maxf(hi, gy)
+	if hi <= lo:
+		return 0.0
+	var sc := 1.0
+	var walker: Node = s
+	while walker != null and walker != node and walker is Node3D:
+		sc *= (walker as Node3D).scale.y
+		walker = walker.get_parent()
+	return (hi - lo) * sc
 
 
 # Fetch a GLB by absolute URL -> instanced scene root (null on any failure). Mirrors the builder's
@@ -1449,8 +1533,8 @@ func _relayout_ui() -> void:
 	(_hud_btns["jump"] as Button).position = Vector2(vp.x - bw - m, vp.y - 3.0 * bh - 3.0 * m - 40.0)
 	(_hud_btns["potion"] as Button).position = Vector2(vp.x - 2.0 * bw - 2.0 * m, vp.y - bh - m - 40.0)
 	(_hud_btns["weapon"] as Button).position = Vector2(vp.x - 2.0 * bw - 2.0 * m, vp.y - 2.0 * bh - 2.0 * m - 40.0)
-	(_hud_btns["stable"] as Button).position = Vector2(vp.x - bw - m, 12.0)
-	(_hud_btns["stable"] as Button).size = Vector2(bw, clampf(bh * 0.7, 60.0, 90.0))
+	(_hud_btns["stable"] as Button).position = Vector2(vp.x - bw - m, 158.0)   # below the stats block
+	(_hud_btns["stable"] as Button).size = Vector2(bw, clampf(bh * 0.6, 54.0, 78.0))
 
 
 func _button(text: String, pos: Vector2, sz: Vector2, cb: Callable) -> Button:

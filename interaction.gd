@@ -32,6 +32,7 @@ var dlg_box: PanelContainer    # ONLY system messages now (chest/door/locked) â€
 var dlg_label: RichTextLabel   # so it never covers the bottom touch controls. NPC talk = VOICE.
 var dlg_queue: Array = []
 var active := false
+var talks := 0   # incremented on every NPC talk (deterministic signal for verify/QA)
 
 # --- spoken NPC dialogue ---
 var voice_player: AudioStreamPlayer = null
@@ -562,6 +563,7 @@ func stand_player() -> void:
 
 
 func _talk(it: Dictionary) -> void:
+	talks += 1
 	# VOICE, not a text box: speak the NPC's lines aloud (distinct per-character voice).
 	if quest and String(it.get("npc_id", "")) != "":
 		quest.notify_talk(it.npc_id)   # advances any talk_to quest objective

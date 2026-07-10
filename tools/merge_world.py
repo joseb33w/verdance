@@ -8,7 +8,7 @@ BUILD = "cloud-pdunxmcf6r3gqaagf06a"
 M = f"/{BUILD}/models"
 
 world = json.load(open("/workspace/world.json"))
-sites = json.load(open("/workspace/sites.json"))
+sites = json.load(open("/workspace/tools/sites.json"))
 
 world["title"] = "VERDANCE — Warden of the Four Reaches"
 world["hero_model"] = f"{M}/warden.glb"
@@ -73,6 +73,11 @@ world["beacons"] = [
 ]
 
 world["regions"] = sites["regions"]
+
+# Meshy hero skyline piece on the helipad plaza (offset off the helicopter spawn at centre)
+for c in world["cells"]:
+    if c.get("cell") == [24, 19] and not c.get("landmark"):
+        c["landmark"] = {"url": f"{M}/spire_core.glb", "pos": [-5, -5], "collider": "box", "scale": 1.0}
 
 # the director owns time-of-day + region weather; the sky block only sets the pre-title look
 world["sky"] = {"time": "day", "weather": "clear"}
