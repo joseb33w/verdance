@@ -204,6 +204,9 @@ var _driver: CharacterBody3D = null
 var _speed := 0.0               # signed m/s along -basis.z (negative = reversing)
 var _input := Vector2.ZERO      # main.gd's shared input vector (x = steer, y = throttle, screen-up = -y)
 var _rev_latch := false         # drive_input_world reverse state (hysteresis, ground/water only)
+var _world_drive := false       # true while the on-screen joystick feeds a camera-relative heading via
+                                # drive_input_world (point-and-go, speed-independent turn); false = the raw
+                                # drive_input(steer,throttle) path used by the verify harness
 var _label: Label3D = null
 var _height := 1.6              # scaled model height (roof) — the floating label sits above it
 var _body_ab := AABB()          # composed body bounds in the vehicle's LOCAL frame — the DRIVE/RIDE
@@ -417,7 +420,7 @@ func _mount_model(spec: Dictionary, model: Node3D) -> AABB:
 	bm.size = Vector3(target_len * 0.45, 1.3, target_len)
 	mi.mesh = bm
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.75, 0.2, 0.2)
+	m.albedo_color = Color(0.55, 0.57, 0.6)   # neutral "loading" gray, not a jarring red box — a missed model hot-swaps in when its fetch lands (#9)
 	mi.material_override = m
 	mi.position.y = 0.65
 	add_child(mi)
@@ -479,12 +482,18 @@ func _setup_mount(spec: Dictionary, ab: AABB) -> void:
 		if is_finite(dy):
 			gap = seat.y - dy   # authored seat: report its height over the sampled surface
 	else:
+		# The dorsal vertex scan reads UN-SKINNED rest-pose verts, which for a skinned Meshy rig can
+		# land at the belly/ground and sink the RIDER UNDER the mount ("mounts the character below it").
+		# Trust the scan only when it lands in a plausible BACK-LINE band of the AABB; otherwise use the
+		# per-profile SEAT_FRACTION of the AABB height, which is robust across rigs.
+		var frac_y := ab.position.y + float(SEAT_FRACTION.get(profile, 0.7)) * ab.size.y
 		var dy := _dorsal_y(centre.x, seat_z, ab)
-		if is_finite(dy):
-			seat = Vector3(centre.x, dy, seat_z)   # ON the back line — hips land at marker +0.12
+		var lo := ab.position.y + 0.45 * ab.size.y
+		var hi := ab.position.y + 0.98 * ab.size.y
+		if is_finite(dy) and dy >= lo and dy <= hi:
+			seat = Vector3(centre.x, dy, seat_z)   # scan landed on the back — hips at marker +0.12
 		else:
-			# no vertex in the scan window (unloadable mesh): back-line fraction of the height
-			seat = Vector3(centre.x, ab.position.y + float(SEAT_FRACTION.get(profile, 0.7)) * ab.size.y, seat_z)
+			seat = Vector3(centre.x, frac_y, seat_z)   # bogus/absent scan -> reliable AABB back-line fraction
 	_mount_marker = Node3D.new()
 	_mount_marker.name = "MountMarker"
 	_mount_marker.position = seat
@@ -1056,6 +1065,25 @@ func _drive(delta: float) -> void:
 # past takeoff speed with the throttle held.
 func _drive_ground(delta: float, p: Dictionary) -> void:
 	var max_speed := float(p["max_speed"])
+	# POINT-AND-GO (the on-screen joystick, via drive_input_world): turn the body TOWARD the commanded
+	# heading at a snappy, SPEED-INDEPENDENT rate, then drive along the nose. The legacy path below
+	# scales steering by speed, so a car/mount had almost no turn authority at low speed and felt
+	# "locked into a direction" (the #1 driving complaint). _input.x here is the signed heading error
+	# from drive_input_world; driving it toward zero points the body where the stick points, at any speed.
+	if _world_drive:
+		var wtarget := -_input.y * max_speed
+		var wrate := float(p["accel"]) if absf(wtarget) > absf(_speed) else float(p["brake"])
+		_speed = move_toward(_speed, wtarget, wrate * delta)
+		var wturn := float(p["turn_rate"]) * (1.0 if bool(p.get("steer_fixed", false)) else 1.7)
+		rotation.y += -_input.x * wturn * delta
+		velocity = global_transform.basis.z * _speed
+		velocity.y = 0.0
+		move_and_slide()
+		_snap_to_ground(delta)
+		if bool(p.get("fly", false)) and _speed > float(p.get("takeoff", 9.0)) and -_input.y > 0.4:
+			_airborne = true
+			_pitch = deg_to_rad(10.0)
+		return
 	var target := -_input.y * max_speed   # screen-up / W = forward (same sign as _keyboard_vec)
 	var rate := float(p["accel"]) if absf(target) > absf(_speed) else float(p["brake"])
 	_speed = move_toward(_speed, target, rate * delta)
@@ -1269,6 +1297,7 @@ func enter(driver: CharacterBody3D) -> void:
 	_driver = driver
 	_speed = 0.0
 	_input = Vector2.ZERO
+	_world_drive = false
 	_air_thr = 1.0
 	_land_req = false
 	driver.velocity = Vector3.ZERO
@@ -1334,6 +1363,7 @@ func exit() -> void:
 # _keyboard_vec). Airborne: x = bank+yaw, y = pitch. Ignored (stored but never integrated)
 # unless the state machine has reached DRIVING.
 func drive_input(v: Vector2) -> void:
+	_world_drive = false
 	_input = v.normalized() if v.length() > 1.0 else v
 
 
@@ -1346,6 +1376,7 @@ func drive_input(v: Vector2) -> void:
 # heading, hold level (a 2D world vector carries no climb). Near-zero -> COAST (hold heading + speed,
 # no reverse, no snap-stop).
 func drive_input_world(world_dir: Vector2) -> void:
+	_world_drive = true
 	var thr := clampf(world_dir.length(), 0.0, 1.0)
 	if thr < 0.05:
 		if _airborne:

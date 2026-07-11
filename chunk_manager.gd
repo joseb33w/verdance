@@ -46,7 +46,7 @@ const RING_RADIUS := 1                 # Chebyshev radius -> 3x3 footprint
 # visible) — affordable now that proxies bake NO colliders (P4). FAR_CAP raised to match the bigger
 # ring (11x11 - 3x3 resident = 112 proxies + headroom).
 const FAR_RADIUS := 5                  # far-PROXY ring radius: silhouette-only cells past the resident ring
-const FAR_CAP := 128                   # LRU ceiling on live far proxies (bounds far-ring memory)
+const FAR_CAP := 96                    # LRU ceiling on live far proxies (bounds far-ring memory). Lowered 128->96 for #10/#8 mobile-OOM headroom (the "sudden refresh" is a mobile tab-crash-reload under memory pressure, not a code reload)
 # Wave 4 P6 SKYLINE tier: cells in the Chebyshev band (FAR_RADIUS, SKYLINE_RADIUS] render ONLY their
 # structures, as ONE merged material-less silhouette mesh (no ground/roads/props/colliders/lights) —
 # a distant city skyline for pennies (1 draw call). SKYLINE_RADIUS 10 cells ~= 160m past the proxies.

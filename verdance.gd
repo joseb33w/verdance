@@ -44,7 +44,6 @@ var _restore_pending := false
 
 var _toast: Label
 var _compass: Label
-var _region_lbl: Label
 var _stable_panel: PanelContainer = null
 var _toast_q: Array = []
 var _toast_busy := false
@@ -215,8 +214,6 @@ func _region_tick() -> void:
 	if found == "" or found == _cur_region:
 		return
 	_cur_region = found
-	if _region_lbl != null:
-		_region_lbl.text = fname.to_upper()
 	if not discovered.has(found):
 		discovered.append(found)
 		toast(fname + "  --  discovered!")
@@ -613,21 +610,15 @@ func _summon(v: Vehicle) -> void:
 # ---------------- HUD extras (toast / compass / region) ----------------
 
 func _build_overlay_ui() -> void:
-	_region_lbl = Label.new()
-	_region_lbl.text = ""
-	_region_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_region_lbl.add_theme_font_size_override("font_size", 20)
-	_region_lbl.add_theme_color_override("font_color", Color(0.55, 0.9, 0.82, 0.9))
-	_region_lbl.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_region_lbl.offset_top = 118.0   # below the compact stats block + hp bar (no top-strip collisions)
-	main.hud_layer.add_child(_region_lbl)
+	# NOTE: no persistent region label — region identity surfaces ONLY as the one-time
+	# "Entering X" toast that fades (a pinned label read as HUD clutter / a stuck banner).
 	_compass = Label.new()
 	_compass.text = ""
 	_compass.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_compass.add_theme_font_size_override("font_size", 19)
 	_compass.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	_compass.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_compass.offset_top = 144.0
+	_compass.offset_top = 132.0   # below the compact stats block + hp bar (no top-strip collisions)
 	main.hud_layer.add_child(_compass)
 	_toast = Label.new()
 	_toast.text = ""

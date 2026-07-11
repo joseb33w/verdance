@@ -11,7 +11,7 @@ var anim: AnimationPlayer
 var agent: NavigationAgent3D
 var mesh_root: Node3D
 
-var hp := 45.0
+var hp := 90.0              # base pool: a solid weapon (25-62 dmg) now takes 2-4 clean hits instead of one-shotting. Was 45 — BELOW several weapons (steel 55, frost hammer 62), so any upgrade one-shot every enemy. Per-region/tier scaling comes from the playbook (Group 3 #16).
 var speed := 3.3
 var kind := "skeleton"      # reported on death -> kill_count quest match (honors cell.enemy_type)
 var dead := false
@@ -29,6 +29,9 @@ var c_hurt := ""
 var hurt_t := 0.0           # brief flinch hold so locomotion doesn't override the hurt clip
 var _cur := ""
 
+
+const MAX_ENEMY_H := 4.0    # cap absurdly-large Meshy enemy models so a giant can't fill the frame ("monster popup" / full-screen mass); normal enemies are untouched
+const CAM_FADE_NEAR := 1.6  # hide the enemy mesh when this close to the CAMERA so a body pressed against the lens can't wall the view
 
 func setup(p: Node3D, model: Node, w: Node, index := 0, total := 1, etype := "skeleton") -> void:
 	player = p
@@ -64,6 +67,15 @@ func setup(p: Node3D, model: Node, w: Node, index := 0, total := 1, etype := "sk
 		mesh_root = Node3D.new()
 		add_child(mesh_root)
 		mesh_root.add_child(model)
+		# scale-normalize (#6): cap a giant Meshy enemy so it can't fill the screen when it attacks.
+		# Only shrinks models taller than MAX_ENEMY_H, then re-grounds the feet — normal enemies untouched.
+		if model is Node3D:
+			var mab := _model_aabb(model as Node3D)
+			if mab.size.y > MAX_ENEMY_H and mab.size.y > 0.01:
+				var m3 := model as Node3D
+				m3.scale *= MAX_ENEMY_H / mab.size.y
+				mab = _model_aabb(m3)
+				m3.position.y -= mab.position.y   # re-ground the shrunk model's base to the origin
 		anim = _find_anim(model)
 		if anim == null and model is Node3D:
 			# Streamed KayKit skeletons ship with NO embedded clips — retarget from
@@ -82,7 +94,7 @@ func setup(p: Node3D, model: Node, w: Node, index := 0, total := 1, etype := "sk
 		mi.mesh = cm
 		mi.position.y = 0.75
 		var m := StandardMaterial3D.new()
-		m.albedo_color = Color(0.8, 0.3, 0.3)
+		m.albedo_color = Color(0.55, 0.57, 0.6)   # neutral "loading" gray, not a jarring red — the model hot-swaps in when its fetch lands (#9)
 		mi.material_override = m
 		add_child(mi)
 		mesh_root = mi
@@ -225,3 +237,36 @@ func _face(dir: Vector3) -> void:
 		return
 	var look := global_position - Vector3(dir.x, 0.0, dir.z)
 	look_at(Vector3(look.x, global_position.y, look.z), Vector3.UP)
+
+
+# Hide the enemy mesh when it's within CAM_FADE_NEAR of the CAMERA (fed by main._process): a body
+# pressed against the lens reads as a "popup". The SpringArm masks world-only, so it never pulls in on
+# enemies (layer 4) — main runs the distance test and calls this. (#6)
+func set_camera_near(cam_dist: float) -> void:
+	if mesh_root != null and is_instance_valid(mesh_root):
+		mesh_root.visible = cam_dist > CAM_FADE_NEAR
+
+
+# Local-frame merged mesh bounds of a subtree (scale/ground decisions at setup, before the model
+# animates). Accumulates transforms from IDENTITY so the result is relative to `root`.
+func _model_aabb(root: Node3D) -> AABB:
+	var merged := AABB()
+	var first := true
+	var stack: Array = [[root, Transform3D.IDENTITY]]
+	while not stack.is_empty():
+		var pair: Array = stack.pop_back()
+		var n: Node = pair[0]
+		var xf: Transform3D = pair[1]
+		for c in n.get_children():
+			var cx := xf
+			if c is Node3D:
+				cx = xf * (c as Node3D).transform
+			stack.append([c, cx])
+		if n is MeshInstance3D and (n as MeshInstance3D).mesh != null:
+			var wa: AABB = xf * (n as MeshInstance3D).get_aabb()
+			if first:
+				merged = wa
+				first = false
+			else:
+				merged = merged.merge(wa)
+	return merged
