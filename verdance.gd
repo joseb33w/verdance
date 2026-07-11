@@ -618,7 +618,7 @@ func _build_overlay_ui() -> void:
 	_compass.add_theme_font_size_override("font_size", 19)
 	_compass.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	_compass.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_compass.offset_top = 122.0   # below the compact stats block + hp bar (no top-strip collisions)
+	_compass.offset_top = 132.0   # below the compact stats block + hp bar (no top-strip collisions)
 	main.hud_layer.add_child(_compass)
 	_toast = Label.new()
 	_toast.text = ""

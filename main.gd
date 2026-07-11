@@ -619,6 +619,22 @@ func _attack() -> void:
 		if d > 0.001 and d < target_d and fwd.dot(to / d) > 0.35:
 			target = e
 			target_d = d
+	if target == null:
+		# AIM ASSIST (mobile): nothing in the forward cone, but a foe is within REACH — acquire the
+		# nearest one in ANY direction. A stationary ATTACK tap must never whiff while an enemy
+		# gnaws at the player's back (enemies circle their surround slots, so "behind" is common).
+		# Still ONE target, still full reach, and the look_at below turns the body so the blow
+		# reads as aimed — not a proximity kill.
+		target_d = 2.4
+		for e in streamer.enemies:
+			if not is_instance_valid(e) or e.dead:
+				continue
+			var to2: Vector3 = e.global_position - player.global_position
+			to2.y = 0.0
+			var d2 := to2.length()
+			if d2 > 0.001 and d2 < target_d:
+				target = e
+				target_d = d2
 	if target != null:
 		var tp: Vector3 = target.global_position
 		player.look_at(Vector3(tp.x, player.global_position.y, tp.z), Vector3.UP)   # face the struck foe
@@ -1525,12 +1541,12 @@ func _build_hud() -> void:
 	hud_layer.add_child(stats)
 	var bg := ColorRect.new()
 	bg.color = Color(0, 0, 0, 0.5)
-	bg.position = Vector2(12, 98)
+	bg.position = Vector2(12, 112)
 	bg.size = Vector2(220, 14)
 	hud_layer.add_child(bg)
 	hp_bar = ColorRect.new()
 	hp_bar.color = Color(0.85, 0.25, 0.25)
-	hp_bar.position = Vector2(12, 98)
+	hp_bar.position = Vector2(12, 112)
 	hp_bar.size = Vector2(220, 14)
 	hud_layer.add_child(hp_bar)
 	# full-screen red flash for damage feedback (starts transparent; _flash_hurt pulses it). Ignores
