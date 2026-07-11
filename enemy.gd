@@ -11,7 +11,12 @@ var anim: AnimationPlayer
 var agent: NavigationAgent3D
 var mesh_root: Node3D
 
-var hp := 90.0              # base pool: a solid weapon (25-62 dmg) now takes 2-4 clean hits instead of one-shotting. Was 45 — BELOW several weapons (steel 55, frost hammer 62), so any upgrade one-shot every enemy. Per-region/tier scaling comes from the playbook (Group 3 #16).
+var hp := 120.0             # base pool. Raised from 90 for clearer multi-hit feel; combined with the
+                            # per-hit cap in take_hit (a single blow can never exceed HIT_CAP_FRAC of
+                            # hp_max) this GUARANTEES no weapon one-shots an enemy — always 2+ clean
+                            # hits, regardless of weapon upgrades. Per-region/tier scaling: playbook #16.
+var hp_max := 120.0         # spawn pool, captured in setup(); the never-one-shot cap is relative to it
+const HIT_CAP_FRAC := 0.55  # a single hit removes at most this fraction of hp_max -> min 2 hits to kill
 var speed := 3.3
 var kind := "skeleton"      # reported on death -> kill_count quest match (honors cell.enemy_type)
 var dead := false
@@ -37,6 +42,7 @@ func setup(p: Node3D, model: Node, w: Node, index := 0, total := 1, etype := "sk
 	player = p
 	world = w
 	kind = etype
+	hp_max = hp   # capture spawn pool so the never-one-shot cap tracks any region/tier hp scaling
 	collision_layer = 4   # enemy layer
 	collision_mask = 1    # world only; RVO avoidance handles enemy separation
 	floor_max_angle = deg_to_rad(55)   # match the player: climb steep terrain instead of stalling at 45°
@@ -98,6 +104,7 @@ func setup(p: Node3D, model: Node, w: Node, index := 0, total := 1, etype := "sk
 		mi.material_override = m
 		add_child(mi)
 		mesh_root = mi
+		print("GOGI_PLACEHOLDER enemy ", kind)   # verify.mjs asset-fail gate: a gray enemy box is visible
 
 
 func _physics_process(delta: float) -> void:
@@ -167,6 +174,7 @@ func _on_safe_velocity(safe: Vector3) -> void:
 func take_hit(d: float) -> void:
 	if dead:
 		return
+	d = minf(d, hp_max * HIT_CAP_FRAC)   # never one-shot: cap a single blow so a kill always takes 2+ hits
 	hp -= d
 	flash_t = 0.12
 	AudioManager.play_sfx("hit")

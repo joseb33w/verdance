@@ -19,3 +19,4 @@ civilian_f.glb | character-npc | rigged:yes | clips:idle,walk | gate PASS; white
 ranger.glb | character-npc | rigged:yes | clips:idle,walk | gate PASS; grey beard, hat, weathered leathers; no walking stick baked (hands free); 1.75m
 spire_core.glb | building-landmark | rigged:no | clips:none | PASS — white monolith, teal helical ribbons, ring+crystal pinnacle (v1 obelisk regenerated; texture brightened)
 civilian_m.glb | character-npc | rigged:yes | clips:idle,walk | gate PASS; white-teal sleek jacket; 1.8m
+drake.glb | creature-mount | rigged:yes | clips:idle,idle_alert,walk,trot,run,gallop,swim,eat,attack,headbutt,rear,hurt,death,jump,tail_whip | RIG LAB G_QUADRUPED, gate PASS; moss-green scales, bronze plating, teal wing membranes/crest, folded wings, bare-backed; unit length — scale ~4.5m in engine

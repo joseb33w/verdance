@@ -1,23 +1,26 @@
 # Goal
-Re-sync VERDANCE to the latest godot-tmpl-rpg engine (batch fixes: swim depth, point-and-go
-vehicle steering, rider seat plausibility band, direct-hit melee, enemy scale-cap + camera-near
-fade, GLB fetch retry / neutral-gray placeholders, GLB cache 48 + FAR_CAP 96 mobile-OOM headroom,
-MIN_STOREY interior reconcile, skeleton-aware avatar seating, poll-JSON hardening) while keeping
-VERDANCE's own layer (director, HUD relayout, hit-spark, char-height helper, skel-span mount
-sizing, enemy->main damage fallback, scatter mesh-xform bake). Fix game-side issues: drop the
-pinned region label (keep the fading "Entering X" toast), make the Spire Core finale reachable,
-confirm Supabase saves round-trip. Re-verify and redeploy the preview.
+Re-sync VERDANCE to the latest godot-tmpl-rpg engine batch (never-one-shot enemy HIT_CAP,
+sky {"fog":false} hard-disable, cloth-bone-aware avatar seating + GOGI_HERO_SEAT gate,
+rider seat plausibility band 0.72, dedicated DISMOUNT button, swim depth-OR-below gate,
+no-op hurt flash, /cloud-<id>/ asset-path self-heal, GOGI_PLACEHOLDER verify gates,
+parapet roofs + warm lit interiors) while KEEPING Verdance's own layer (director, HUD
+relayout, aim assist, hit spark, skel-span mount sizing, scatter mesh-xform bake,
+enemy->main damage fallback). Game-side: kill distance fog, resolve every model on this
+build id, Meshy drake for the Skydrake, Structures-specialist re-spec of all 6 enterable
+buildings (no cone roofs, roomy lit interiors, finale stairwell to the y=59.5 beacon),
+confirm winnability + Supabase save round-trip.
 
 # Files to touch
-main.gd, vehicle.gd, enemy.gd, chunk_manager.gd, area_builder.gd, build_structure.gd (engine
-overlay + re-integration), verdance.gd (region label), world.json (finale, only if verification
-shows it unreachable), tools/.gdignore, docs/.gdignore.
+main.gd, vehicle.gd, enemy.gd, weather3d.gd, area_builder.gd, build_structure.gd (engine
+merge), verdance.gd (fog + dismount state for verify), world.json (sky.fog, build-id
+normalize, drake model, 6 enterable specs), models/meshy/drake.glb (new).
 
 # Verification approach
-qgcheck winnability gate; headless smoke verify (boot + frames); in-engine targeted checks
-(spire door + stairs reachability, melee direct-hit delta + spark, mount seat above the back
-line, vehicle point-and-go turn, swim trigger); live Supabase RPC round-trip (done: 204/200,
-cross-device isolated); redeploy preview; PR + merge.
+qgcheck winnability; smoke verify (boot/frames/pck); targeted playwright suite via
+?mode=free + gogi knobs (fog flag, hero seat, on_floor walk, enemy engage + multi-hit +
+player damage, stag board + seat gap + DISMOUNT button tap, car drive/steer, boat sail,
+swim float, zero placeholders / zero glb 404); live Supabase RPC round-trip + isolation;
+QA specialist final gate; redeploy preview cloud-ln4jfbfjx60zaprwslze.
 
 # Out of scope
-New content/areas, art changes, multiplayer, authoritative server.
+New regions/quests, multiplayer, authoritative server, art-style changes.

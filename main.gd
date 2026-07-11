@@ -83,8 +83,6 @@ var _weapon_btn: Button = null     # HUD draw/holster toggle (updates its own DR
 var _hero_ap: AnimationPlayer = null   # the hero avatar's AnimationPlayer (retargeted OR embedded clips)
 var _hero_anim := ""                    # current semantic anim kind (idle/walk/run/attack)
 var _hero_attack_t := 0.0               # remaining melee-attack-clip hold (s)
-var _hurt_flash: ColorRect = null       # brief red screen flash on taking damage (NON-modal feedback,
-                                        # never a popup/banner — a hit must READ without interrupting play)
 var _hero_avatar: Node3D = null         # the attached hero GLB — hidden when the camera collapses onto it
 
 var rpg: RpgState
@@ -122,6 +120,7 @@ var hud_layer: CanvasLayer
 var stats: Label
 var hp_bar: ColorRect
 var _hud_btns: Dictionary = {}   # name -> Button, repositioned by _relayout_ui on resize
+var _dismount_btn: Button = null   # contextual GET-OFF button: hidden on foot, shown while driving/riding
 
 
 func _ready() -> void:
@@ -131,6 +130,7 @@ func _ready() -> void:
 	win.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 	win.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
 	win.size_changed.connect(_relayout_ui)
+	_fit_ui_scale()
 	if OS.has_feature("web"):
 		var o = JavaScriptBridge.eval("window.location.origin", true)
 		if typeof(o) == TYPE_STRING and String(o) != "":
@@ -138,7 +138,10 @@ func _ready() -> void:
 		var dir = JavaScriptBridge.eval("window.location.href.replace(/[^/]*$/, '')", true)
 		if typeof(dir) == TYPE_STRING and String(dir) != "":
 			world_url = String(dir) + "world.json"
-		var bid = JavaScriptBridge.eval("location.pathname.split('/').filter(Boolean)[0] || ''", true)
+		# Build id = the first path segment ONLY when it actually looks like one (cloud-*/news-cloud-*).
+		# Serving from a bare root (localhost verify, custom domain) otherwise captured "index.html"
+		# as the build id and the self-heal re-rooted every asset onto a bogus /index.html/… path.
+		var bid = JavaScriptBridge.eval("(function(){var s=location.pathname.split('/').filter(Boolean)[0]||'';return /^(news-)?cloud-/.test(s)?s:'';})()", true)
 		if typeof(bid) == TYPE_STRING and String(bid) != "":
 			build_id = String(bid)
 		var soak = JavaScriptBridge.eval("window.location.search.indexOf('soak=1')>=0", true)
@@ -387,11 +390,18 @@ func _chunk_physics(delta: float) -> void:
 	var pz := player.global_position.z
 	var wl := chunk_manager.water_level if (chunk_manager != null and chunk_manager.water_cfg != null) else -1e9
 	var gy := chunk_manager._ground_y(px, pz) if chunk_manager != null else 0.0
-	var depth := wl - gy
-	if not swimming and depth > WADE_DEPTH and player.global_position.y < wl - 0.2:
+	var depth := wl - gy                                 # water column above the seabed at this XZ
+	var below := wl - player.global_position.y           # how far the body sits under the surface (feet-origin)
+	# Engage swim when the player stands in a column deeper than a wade OR the body itself has dropped
+	# below the surface by more than a wade. The player-Y branch is INDEPENDENT of the seabed reading,
+	# so a too-high seabed, a steep unwadeable shore, or a dive-in can no longer suppress swim (the old
+	# depth-only gate + a redundant `player.y < wl-0.2` AND-clause meant a shallow noise-lake never
+	# triggered — the player just stood on a bottom ~0.3m under the surface, reading as lying ON the lake).
+	# Exit only once the seabed has risen to the waterline AND the body is back near the surface (hysteresis).
+	if not swimming and wl > -1e8 and (depth > WADE_DEPTH or below > WADE_DEPTH):
 		_enter_swim()
-	elif swimming and depth <= WADE_DEPTH:
-		_exit_swim()   # ground rose enough to wade out -> hand back to walk
+	elif swimming and depth <= WADE_DEPTH and below <= 0.2:
+		_exit_swim()   # ground rose to the waterline -> hand back to walk
 
 	if swimming:
 		# Float the body at the surface (head/shoulders above, always VISIBLE), move horizontally,
@@ -788,12 +798,11 @@ func take_damage(d: float) -> void:
 
 # Non-modal damage feedback: pulse the red overlay and fade it out. `strong` = a bigger pulse for the
 # in-place recovery (hp hit 0). NEVER a popup/banner/dialog — a hit must never interrupt play.
-func _flash_hurt(strong: bool) -> void:
-	if _hurt_flash == null or not is_instance_valid(_hurt_flash):
-		return
-	_hurt_flash.color.a = 0.6 if strong else 0.3
-	var tw := create_tween()
-	tw.tween_property(_hurt_flash, "color:a", 0.0, 0.5 if strong else 0.35)
+func _flash_hurt(_strong: bool) -> void:
+	# DISABLED by request: no on-hit screen overlay at all. The full-screen red flash read as an
+	# intrusive "popup" when the player was attacked. Damage still registers (hp, audio, camera kick);
+	# there is simply no visual interrupt. Kept as a no-op so every existing call site stays valid.
+	return
 
 
 func on_enemy_killed(type: String) -> void:   # called by enemy.gd on death
@@ -970,6 +979,8 @@ func _on_vehicle_drive_state(v: Vehicle, is_driving: bool) -> void:
 			active_vehicle = null
 		cam_spring.remove_excluded_object(v.get_rid())
 		_set_weapon_stowed(false)   # back on foot — the weapon reappears
+	if _dismount_btn != null and is_instance_valid(_dismount_btn):
+		_dismount_btn.visible = active_vehicle != null   # show GET-OFF only while aboard
 
 
 # Weapon-visual STOW (Wave 1.5). While DRIVING A VEHICLE the equipped weapon is hidden (a driver
@@ -1076,6 +1087,14 @@ func _norm(s: String) -> String:
 	if s.begins_with("http"):
 		return s
 	if s.begins_with("/"):
+		# Self-heal build-coupled paths: a rebuilt world.json bakes the AUTHORING build's id into
+		# absolute /cloud-<id>/… (and /news-cloud-<id>/…) asset URLs, so after a rebuild to a NEW id
+		# every one 404s and renders as a gray placeholder. Re-root any such path onto the CURRENT
+		# build_id so the build's own committed assets resolve regardless of which id authored them.
+		if build_id != "" and (s.begins_with("/cloud-") or s.begins_with("/news-cloud-")):
+			var slash := s.find("/", 1)   # the '/' after the leading /<buildid> segment
+			if slash > 0:
+				return origin + "/" + build_id + s.substr(slash)
 		return origin + s
 	if "/" in s:
 		return origin + "/godot-assets/" + s
@@ -1117,8 +1136,18 @@ func _setup_web_time_hooks() -> void:
 		win.__gogiGetPlayerRaw = _js_get_player_cb
 		win.__gogiSolidsRaw = _js_solids_cb
 	JavaScriptBridge.eval(
-		"window.gogiGetPlayer=function(){var s=window.__gogiGetPlayerRaw();return s?JSON.parse(s):null;};" +
+		"window.gogiGetPlayer=function(){var s=window.__gogiGetPlayerRaw();return s?JSON.parse(s):(window.__gogiPlayer||null);};" +
 		"window.gogiSolids=function(){var s=window.__gogiSolidsRaw();return s?JSON.parse(s):[];};", true)
+	# JavaScriptBridge callback RETURN VALUES do not marshal back to JS in the web export (the raw
+	# call yields null), so the wrapper above would always return null — the same reason the director
+	# PUSHES __gogiVerdance on a timer. Mirror that: push the player state every 0.3s and let the
+	# wrapper fall back to the pushed snapshot.
+	var pt := Timer.new()
+	pt.wait_time = 0.3
+	pt.autostart = true
+	pt.timeout.connect(func() -> void:
+		JavaScriptBridge.eval("window.__gogiPlayer=" + _on_gogi_get_player([]) + ";", true))
+	add_child(pt)
 
 
 func _on_gogi_set_time(args: Array) -> void:
@@ -1142,11 +1171,19 @@ func _on_gogi_get_player(_args: Array) -> String:
 		"cam_yaw": cam_yaw,
 		"climbing": climbing != null,
 		"swimming": swimming,
+		"on_floor": player.is_on_floor(),   # verify.mjs floating-avatar gate: grounded unless swim/climb/vehicle
 	}
 	if active_vehicle != null and is_instance_valid(active_vehicle):
 		d["vehicle_yaw"] = active_vehicle.rotation.y
 		d["vehicle_airborne"] = active_vehicle._airborne   # verify flight-brake probe
 		d["vehicle_profile"] = active_vehicle.profile      # verify boat/mount probes (car/boat/plane/horse/…)
+	if _dismount_btn != null and is_instance_valid(_dismount_btn):
+		# verify: the DISMOUNT affordance's visibility + UI rect (+ the UI viewport size, so the
+		# harness can convert UI coords -> CSS px under canvas_items/expand content scaling)
+		var vps := get_viewport().get_visible_rect().size
+		d["dismount_visible"] = _dismount_btn.visible
+		d["dismount_rect"] = [_dismount_btn.global_position.x, _dismount_btn.global_position.y,
+			_dismount_btn.size.x, _dismount_btn.size.y, vps.x, vps.y]
 	return JSON.stringify(d)
 
 
@@ -1299,6 +1336,10 @@ func _seat_avatar(node: Node3D) -> void:
 		node.position.y -= (foot - AVATAR_FOOT_LIFT)
 	else:
 		node.position.y -= _subtree_aabb(node).position.y
+	# verify.mjs floating-avatar gate: the SEATED mesh's lowest point in player-local space. A correct
+	# seat leaves it near 0 (feet at the ground origin; a rigged cape may drag slightly below). Well
+	# above 0 means the whole avatar was lifted off the ground — it "floats above its shadow".
+	print("GOGI_HERO_SEAT %.3f" % _subtree_aabb(node).position.y)
 
 
 func _skeleton_min_y(root: Node) -> float:
@@ -1306,11 +1347,29 @@ func _skeleton_min_y(root: Node) -> float:
 	if skels.is_empty():
 		return INF
 	var skel := skels[0] as Skeleton3D
+	# Seat by the true FOOT bones. A rigged cape/cloak/skirt/tail/coat hangs BELOW the soles, so
+	# taking the raw lowest bone picks the cloth tip and over-lifts the whole body — it "floats above
+	# its shadow" while walking even though the mesh-AABB fix was already in place (the caped Warden
+	# defeated it because its cloth is RIGGED, not just mesh). Skip those bones by name; if a rig
+	# leaves them all filtered (unnamed Meshy cloth), fall back to the unfiltered min so we never
+	# return INF for a rigged model.
 	var best := INF
+	var best_any := INF
 	for i in skel.get_bone_count():
 		var wy: float = (skel.global_transform * skel.get_bone_global_pose(i).origin).y
+		best_any = minf(best_any, wy)
+		if _is_cloth_bone(skel.get_bone_name(i).to_lower()):
+			continue
 		best = minf(best, wy)
-	return best
+	return best if is_finite(best) else best_any
+
+
+# Dangling cloth / appendage bones that can hang below the soles and must not be treated as the foot.
+func _is_cloth_bone(bn: String) -> bool:
+	for kw in ["cape", "cloak", "cloth", "skirt", "robe", "coat", "dress", "tail", "scarf", "sash", "tassel", "ribbon", "hair", "beard"]:
+		if kw in bn:
+			return true
+	return false
 
 
 func _subtree_aabb(root: Node3D) -> AABB:
@@ -1551,12 +1610,6 @@ func _build_hud() -> void:
 	hud_layer.add_child(hp_bar)
 	# full-screen red flash for damage feedback (starts transparent; _flash_hurt pulses it). Ignores
 	# mouse so it never eats a HUD button press, and it's non-modal — just juice, no popup.
-	_hurt_flash = ColorRect.new()
-	_hurt_flash.color = Color(0.7, 0.05, 0.05, 0.0)
-	_hurt_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hurt_flash.anchor_right = 1.0
-	_hurt_flash.anchor_bottom = 1.0
-	hud_layer.add_child(_hurt_flash)
 	var vp := get_viewport().get_visible_rect().size
 	_hud_btns["attack"] = _button("ATTACK", vp - Vector2(250, 180), Vector2(220, 130), _attack)
 	_hud_btns["use"] = _button("USE", vp - Vector2(250, 330), Vector2(220, 120), func() -> void: interaction.try_use())
@@ -1566,6 +1619,16 @@ func _build_hud() -> void:
 	# JUMP in the RIGHT thumb column (720-wide portrait base: x=vp-250 keeps it on-screen and OUT of the
 	# left-half movement joystick — the old x=vp-730 fell off the left edge on mobile).
 	_hud_btns["jump"] = _button("JUMP", vp - Vector2(250, 480), Vector2(220, 130), func() -> void: _jump_queued = true)
+	# GET-OFF: a dedicated, discoverable dismount control. Exit was bound to USE with NO on-screen
+	# affordance, so riders had no way to know how to get off any vehicle/mount. This button is hidden
+	# on foot and shown the moment you board (toggled in _on_vehicle_drive_state); it calls the same
+	# guarded exit() every profile uses (flight requests a braked descent-then-dismount, so it's safe
+	# mid-air too).
+	_dismount_btn = _button("DISMOUNT", vp - Vector2(490, 480), Vector2(220, 130), func() -> void:
+		if active_vehicle != null and is_instance_valid(active_vehicle):
+			active_vehicle.exit())
+	_dismount_btn.visible = false
+	_hud_btns["dismount"] = _dismount_btn
 	_hud_btns["stable"] = _button("STABLE", Vector2(vp.x - 250, 12), Vector2(220, 90),
 		func() -> void:
 			if director != null:
@@ -1573,9 +1636,27 @@ func _build_hud() -> void:
 	_relayout_ui()
 
 
+# The design base is PORTRAIT 720x1280 with aspect EXPAND, which scales the UI by the WIDTH
+# ratio — a LANDSCAPE phone (e.g. 860x400) therefore renders the whole UI at ~0.31x design
+# scale (7px stats text, 41px-tall buttons). Rescale from the SHORT side instead so text and
+# buttons keep their designed physical size at any orientation.
+func _fit_ui_scale() -> void:
+	var win := get_window()
+	var sz: Vector2 = Vector2(win.size)
+	if sz.x <= 0.0 or sz.y <= 0.0:
+		return
+	# content_scale_factor MULTIPLIES the automatic expand scale (min of the per-axis ratios),
+	# so apply the ratio between the wanted short-side scale and the automatic one.
+	var auto_scale := minf(sz.x / 720.0, sz.y / 1280.0)
+	if auto_scale <= 0.0:
+		return
+	win.content_scale_factor = (minf(sz.x, sz.y) / 720.0) / auto_scale
+
+
 # Reposition the HUD against the LIVE (expanded) viewport — called on every window resize /
 # rotation so portrait AND landscape phones get on-screen controls (never a stale base rect).
 func _relayout_ui() -> void:
+	_fit_ui_scale()
 	if hud_layer == null or _hud_btns.is_empty():
 		return
 	var vp := get_viewport().get_visible_rect().size
@@ -1591,6 +1672,7 @@ func _relayout_ui() -> void:
 	(_hud_btns["use"] as Button).position = Vector2(vp.x - bw - m, vp.y - 2.0 * bh - 2.0 * m - 40.0)
 	(_hud_btns["jump"] as Button).position = Vector2(vp.x - bw - m, vp.y - 3.0 * bh - 3.0 * m - 40.0)
 	(_hud_btns["potion"] as Button).position = Vector2(vp.x - 2.0 * bw - 2.0 * m, vp.y - bh - m - 40.0)
+	(_hud_btns["dismount"] as Button).position = Vector2(vp.x - 2.0 * bw - 2.0 * m, vp.y - 3.0 * bh - 3.0 * m - 40.0)
 	(_hud_btns["weapon"] as Button).position = Vector2(vp.x - 2.0 * bw - 2.0 * m, vp.y - 2.0 * bh - 2.0 * m - 40.0)
 	(_hud_btns["stable"] as Button).position = Vector2(vp.x - bw - m, 158.0)   # below the stats block
 	(_hud_btns["stable"] as Button).size = Vector2(bw, clampf(bh * 0.6, 54.0, 78.0))

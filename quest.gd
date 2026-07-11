@@ -91,7 +91,7 @@ func current_objective() -> String:
 			for step in defs[id].get("steps", []):
 				var mark := "[x] " if _step_done(id, step.get("objective", {})) else "[ ] "
 				parts.append(mark + str(step.get("desc", "")))
-			return "QUEST: " + str(defs[id].get("name", id)) + " — " + " · ".join(parts)
+			return "QUEST: " + str(defs[id].get("name", id)) + " - " + " / ".join(parts)
 		elif st[id].status == "done":
-			return "QUEST: " + str(defs[id].get("name", id)) + " — COMPLETE ✓"
+			return "QUEST: " + str(defs[id].get("name", id)) + " - COMPLETE"
 	return ""
