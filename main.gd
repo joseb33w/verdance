@@ -35,8 +35,8 @@ const GRAVITY := 22.0
 const STEP_MAX := 1.2             # step-up assist lifts onto a lip no higher than this (else = a wall)
 const JUMP_SPEED := 8.5           # jump launch velocity — apex ~1.6m at GRAVITY 22 (v = sqrt(2*g*h))
 const SWIM_SPEED := 3.5
-const SWIM_SURFACE_OFF := 0.4     # body floats this far below the water level -> head/shoulders above
-const WADE_DEPTH := 1.1           # water depth (level - ground) beyond which walking becomes swimming
+const SWIM_SURFACE_OFF := 1.1     # feet ride this far below the surface so the body sits IN the water (chest-deep, head+shoulders above). 0.4 pinned the FEET just under the surface -> the whole 1.7m body floated ON TOP ("walks then floats")
+const WADE_DEPTH := 0.6           # water this much above the ground -> swim. MUST stay below a typical water.level (~1.0): the old 1.1 needed the seabed below -0.1, so ~95% of a shallow noise-lake never triggered swim ("can't swim in water")
 const CLIMB_SPEED := 3.0          # CONTRACT C: ladder ascent/descent speed along Y
 
 # Wave 4 ranged fire: auto-aim cone APEX angle (i.e. ±15° of the character's facing) and the
@@ -403,7 +403,7 @@ func _chunk_physics(delta: float) -> void:
 			var slook := player.global_position - dir
 			player.look_at(Vector3(slook.x, player.global_position.y, slook.z), Vector3.UP)
 		player.move_and_slide()
-		player.global_position.y = wl - SWIM_SURFACE_OFF   # pin to the surface after the slide
+		player.global_position.y = maxf(gy - 0.2, wl - SWIM_SURFACE_OFF)   # ride the surface offset, but never sink the feet through the seabed in marginal-depth water
 		return
 
 	# WALK: horizontal drive at 6 m/s + airborne-only gravity + floor snap (canonical vertical
@@ -534,6 +534,7 @@ func _process(delta: float) -> void:
 	swing_t = maxf(0.0, swing_t - delta)
 	_fire_cd = maxf(0.0, _fire_cd - delta)
 	_update_hero_anim(delta)   # idle/walk/run/attack state machine (on foot; riders are GPose-posed)
+	_fade_near_camera_enemies()   # #6: hide any enemy pressed against the camera lens so it can't "pop up"
 	if weapon_slot != null and is_instance_valid(weapon_slot) \
 			and String(_equipped_def().get("kind", "melee")) == "melee":
 		weapon_slot.rotation_degrees.x = (-90.0 + (1.0 - swing_t / 0.22) * 120.0) if swing_t > 0.0 else -10.0
@@ -569,6 +570,21 @@ func _refresh_stats() -> void:
 # enemy.take_hit). ranged/thrown -> _fire_ranged (auto-aim + pooled GProjectile). The button
 # stays LIVE while DRIVING/MOUNTED — only _physics_process's movement routing is gated on
 # active_vehicle, Button.pressed never passes through it — so riders fire too.
+## Hide any enemy that presses against the camera lens (#6) so a body up close can't fill the frame like
+## a "popup". main runs the distance test because the SpringArm masks world-only and never collides with
+## enemies (layer 4). Giant enemies are also scale-capped at spawn (enemy.gd MAX_ENEMY_H).
+func _fade_near_camera_enemies() -> void:
+	if cam == null or not is_instance_valid(cam):
+		return
+	var streamer = chunk_manager if chunk_mode else scene_manager
+	if streamer == null:
+		return
+	var cp := cam.global_position
+	for e in streamer.enemies:
+		if is_instance_valid(e) and e.has_method("set_camera_near"):
+			e.set_camera_near(cp.distance_to(e.global_position))
+
+
 func _attack() -> void:
 	if _weapon_stowed:
 		_toggle_weapon()   # draw the weapon to strike — a sheathed weapon never blocks combat
@@ -587,34 +603,27 @@ func _attack() -> void:
 	_play_hero("attack")
 	AudioManager.play_sfx("attack")
 	var dmg := rpg.weapon_damage()
-	# aim assist: face the nearest in-range enemy first so a stationary tap connects
-	# (facing convention: characters FACE +Z, i.e. look_at(pos - dir))
-	var nearest: Node3D = null
-	var nd := 2.6
-	for e in streamer.enemies:
-		if not is_instance_valid(e) or e.dead:
-			continue
-		var toe: Vector3 = (e as Node3D).global_position - player.global_position
-		toe.y = 0.0
-		var dd := toe.length()
-		if dd > 0.05 and dd < nd:
-			nd = dd
-			nearest = e
-	if nearest != null:
-		var dir_to: Vector3 = (nearest.global_position - player.global_position)
-		dir_to.y = 0.0
-		if dir_to.length() > 0.05:
-			var lk: Vector3 = player.global_position - dir_to.normalized()
-			player.look_at(Vector3(lk.x, player.global_position.y, lk.z), Vector3.UP)
 	var fwd := player.global_transform.basis.z   # forward=+Z (look_at(pos-dir) faces +Z); -basis.z hit BEHIND (inverted cone)
+	# DIRECT HIT: strike only the SINGLE CLOSEST foe inside a real forward swing arc — not every body in
+	# a ~150° hemisphere. The old `length < 2.6 and dot > 0.25` sprayed FULL damage across the whole
+	# surrounding pack (one tap wiped a group) and let a near-miss "kill by proximity". Acquire the
+	# nearest foe roughly ahead, turn to face it (the blow reads as aimed), then land ONE hit.
+	var target = null
+	var target_d := 2.4   # melee reach, metres
 	for e in streamer.enemies:
 		if not is_instance_valid(e) or e.dead:
 			continue
 		var to: Vector3 = e.global_position - player.global_position
 		to.y = 0.0
-		if to.length() < 2.6 and fwd.dot(to.normalized()) > 0.25:
-			e.take_hit(dmg)
-			_hit_spark((e as Node3D).global_position + Vector3(0.0, 1.0, 0.0))
+		var d := to.length()
+		if d > 0.001 and d < target_d and fwd.dot(to / d) > 0.35:
+			target = e
+			target_d = d
+	if target != null:
+		var tp: Vector3 = target.global_position
+		player.look_at(Vector3(tp.x, player.global_position.y, tp.z), Vector3.UP)   # face the struck foe
+		target.take_hit(dmg)
+		_hit_spark(tp + Vector3(0.0, 1.0, 0.0))
 
 
 # JUICE FLOOR: a one-shot spark burst at the melee impact point (ranged already puffs via
@@ -781,6 +790,17 @@ func on_enemy_killed(type: String) -> void:   # called by enemy.gd on death
 
 # ---------------- live hot-reload from chat edits ----------------
 
+## Parse JSON to a Dictionary WITHOUT the engine printing "Parse JSON failed" on a bad body (a 503 error
+## page, a truncated edge-cache response, or an in-flight write). The static JSON.parse_string() pushes a
+## global ERROR on a malformed body even when the caller handles the null; JSON.new().parse() returns an
+## error code silently. Returns {} on any failure. (#17 — boot/poll JSON hardening.)
+func _json_dict(text: String) -> Dictionary:
+	var j := JSON.new()
+	if j.parse(text) != OK:
+		return {}
+	return j.data if j.data is Dictionary else {}
+
+
 func _poll_world() -> void:
 	# re-fetch world.json; if a chat edit changed it (qgcheck already gated it server-side),
 	# hot-reload the current area live. Cache-buster bypasses the edge cache.
@@ -798,8 +818,8 @@ func _poll_world() -> void:
 	var raw := (res[3] as PackedByteArray).get_string_from_utf8()
 	if raw == _world_raw or raw.strip_edges() == "":
 		return
-	var w = JSON.parse_string(raw)
-	if not (w is Dictionary):
+	var w := _json_dict(raw)   # #17: silent parse — a truncated/error poll body degrades quietly, no console spam
+	if w.is_empty():
 		return
 	# chunk worlds carry "cells"/"grid" (not "areas"); zone worlds carry "areas"
 	if chunk_mode:
@@ -1250,8 +1270,31 @@ func _mat(c: Color) -> StandardMaterial3D:
 # Library/Meshy character GLBs often have their origin at the hips/centre, so
 # without this the feet sink under the floor — props get the same treatment in
 # the AreaBuilder; this is the player-side equivalent. Call after add_child().
+const AVATAR_FOOT_LIFT := 0.05   # lowest skeleton bone is the ankle/toe; nudge up a hair so soles sit ON the ground, not a toe-thickness into it
+
 func _seat_avatar(node: Node3D) -> void:
-	node.position.y -= _subtree_aabb(node).position.y
+	# Seat the avatar so its FEET rest at the body origin. Prefer the SKELETON's lowest bone over the
+	# raw mesh AABB: a Meshy/library character's lowest MESH point is often a robe/cape/tail/weapon that
+	# hangs BELOW the soles, so seating the mesh-bottom at y=0 lifted the whole body ~0.5-0.8m — it
+	# "floated above its shadow" while walking (root-caused live). Bone poses ignore dangling cloth.
+	# Falls back to the mesh AABB only when the model is unrigged (no Skeleton3D).
+	var foot := _skeleton_min_y(node)
+	if is_finite(foot):
+		node.position.y -= (foot - AVATAR_FOOT_LIFT)
+	else:
+		node.position.y -= _subtree_aabb(node).position.y
+
+
+func _skeleton_min_y(root: Node) -> float:
+	var skels := root.find_children("*", "Skeleton3D", true, false)
+	if skels.is_empty():
+		return INF
+	var skel := skels[0] as Skeleton3D
+	var best := INF
+	for i in skel.get_bone_count():
+		var wy: float = (skel.global_transform * skel.get_bone_global_pose(i).origin).y
+		best = minf(best, wy)
+	return best
 
 
 func _subtree_aabb(root: Node3D) -> AABB:
@@ -1317,7 +1360,7 @@ func _attach_hero_model() -> void:
 		var ab := _subtree_aabb(node)
 		if ab.size.y > 0.001:
 			node.scale *= HERO_HEIGHT / ab.size.y   # size to the capsule (~1.65 m tall)
-		_seat_avatar(node)                           # character GLB origins sit at the hips — feet to y=0
+	_seat_avatar(node)                           # skeleton-aware: feet (not dangling cloth) to y=0
 	if _capsule_body != null and is_instance_valid(_capsule_body):
 		_capsule_body.visible = false            # the placeholder body gives way to the avatar
 	_play_hero_idle(node)

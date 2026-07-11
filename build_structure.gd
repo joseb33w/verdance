@@ -37,6 +37,7 @@ const LINING_T := 0.05   # interior plaster lining (visual-only)
 const DOOR_W := 1.4      # doorway width
 const DOOR_H := 2.2      # doorway height
 const STAIR_W := 1.2     # stair flight width
+const MIN_STOREY := 2.6   # minimum floor-to-floor height — interiors never squish below this even when an explicit `height` is short relative to `floors` (keeps ceilings/doorways/stairs human-scale)
 
 
 # `proxy=true` = far-proxy mode: ALWAYS the solid body — far proxies must never carry interiors,
@@ -214,7 +215,12 @@ static func _interior_spec(spec: Dictionary) -> Dictionary:
 # (no window holes — OmniLights light the inside), and the door wall keeps the plain body material
 # so a window grid never lands squished around the doorway.
 static func _build_shell(root: Node3D, idict: Dictionary, foot: Vector2, floors: int, height: float, facade, body_mat: StandardMaterial3D, roof_mat: StandardMaterial3D, spec: Dictionary) -> void:
-	var sh := height / float(floors)              # storey height (an explicit `height` divides evenly)
+	# Keep storeys human-scale: an explicit `height` overrides `floors` for the EXTERIOR silhouette, so a
+	# short-but-many-floors spec would cram N storeys into a low shell -> clamped ceilings and sealed
+	# doorways ("interiors squished and wrong"). Reduce the interior floor count so each storey keeps
+	# >= MIN_STOREY; the exterior height is untouched, and normal buildings (height ~= floors*fh) are unchanged.
+	floors = clampi(floors, 1, maxi(1, int(height / MIN_STOREY)))
+	var sh := height / float(floors)              # storey height, reconciled (>= MIN_STOREY)
 	var wall_mat := _facade_mat(facade, body_mat, foot, floors, spec)
 	var inner_mat := GSurf.surface("plaster")     # plain interior lining
 	var floor_mat := GSurf.surface("wood")
