@@ -56,6 +56,12 @@ static func structure(spec: Dictionary, proxy: bool = false) -> Node3D:
 	var roof_mat := GSurf.surface(spec.get("roof_material", spec.get("material", "concrete")))
 	# opt-in enterable interior (vertical profile only; needs a sane footprint to hollow out)
 	var idict := {} if (proxy or foot.x < 3.0 or foot.y < 3.0) else _interior_spec(spec)
+	# An enterable building with NO explicit cap used to fall through to a bare flat slab (and the
+	# "cone" complaints come from world.json authoring cap:"spire"). Give a capless enterable building
+	# a clean finished PARAPET roofline instead of a bare deck — never a cone. Explicit caps (incl.
+	# spire) and solid non-enterable buildings are untouched.
+	if not spec.has("cap") and not idict.is_empty():
+		cap = "parapet"
 	var shelled := false
 
 	var top_foot := foot   # footprint at the body's TOP, so the cap is sized to it
@@ -164,6 +170,8 @@ static func _add_cap(root: Node3D, cap: String, top_foot: Vector2, height: float
 			c = GShapes.dome(minf(top_foot.x, top_foot.y) * 0.5, float(spec.get("roof_height", minf(top_foot.x, top_foot.y) * 0.5)))
 		"spire":
 			c = GShapes.cylinder(minf(top_foot.x, top_foot.y) * 0.4, 0.0, float(spec.get("roof_height", height * 0.5)), 8)
+		"parapet":
+			c = _parapet(top_foot, float(spec.get("roof_height", clampf(minf(top_foot.x, top_foot.y) * 0.06, 0.35, 0.8))))
 		_:   # "flat" / unknown -> no cap
 			return
 	if c != null:
@@ -177,6 +185,26 @@ static func _add_cap(root: Node3D, cap: String, top_foot: Vector2, height: float
 		if shelled:
 			GShapes.add_collider(c, "mesh")
 		root.add_child(c)
+
+
+# A clean flat roofline for enterable buildings: four thin perimeter walls (a low parapet) around the
+# roof deck instead of a bare slab or a cone. N/S run the full width; E/W fit between them. Base at y=0
+# so _add_cap lifts the whole thing to the roofline. Reads as a finished building top on any footprint.
+static func _parapet(foot: Vector2, h: float) -> Node3D:
+	var root := Node3D.new()
+	var t := 0.2
+	var segs := [
+		[Vector3(foot.x, h, t), Vector3(0.0, 0.0, -(foot.y - t) * 0.5)],
+		[Vector3(foot.x, h, t), Vector3(0.0, 0.0, (foot.y - t) * 0.5)],
+		[Vector3(t, h, foot.y - 2.0 * t), Vector3((foot.x - t) * 0.5, 0.0, 0.0)],
+		[Vector3(t, h, foot.y - 2.0 * t), Vector3(-(foot.x - t) * 0.5, 0.0, 0.0)],
+	]
+	for sd in segs:
+		var b := GShapes.box(sd[0])
+		b.position.x = (sd[1] as Vector3).x
+		b.position.z = (sd[1] as Vector3).z
+		root.add_child(b)
+	return root
 
 
 # ─────────────────────────────── interior shell (enterable buildings) ───────────────────────────────
@@ -222,7 +250,13 @@ static func _build_shell(root: Node3D, idict: Dictionary, foot: Vector2, floors:
 	floors = clampi(floors, 1, maxi(1, int(height / MIN_STOREY)))
 	var sh := height / float(floors)              # storey height, reconciled (>= MIN_STOREY)
 	var wall_mat := _facade_mat(facade, body_mat, foot, floors, spec)
-	var inner_mat := GSurf.surface("plaster")     # plain interior lining
+	# warm interior lining — a faint emissive so walls never read as pure black in the shadowed interior.
+	# GSurf.surface() returns a CACHED shared material, so duplicate before mutating (else every plaster
+	# surface in the world gets tinted).
+	var inner_mat := (GSurf.surface("plaster") as StandardMaterial3D).duplicate()
+	inner_mat.emission_enabled = true
+	inner_mat.emission = Color(0.95, 0.82, 0.62)
+	inner_mat.emission_energy_multiplier = 0.06
 	var floor_mat := GSurf.surface("wood")
 	var stair_mat := GSurf.surface("timber")
 	var door_face := String(idict["door_face"])
@@ -337,9 +371,10 @@ static func _build_shell(root: Node3D, idict: Dictionary, foot: Vector2, floors:
 	# ---- light budget (pinned): ONE OmniLight3D per storey, max 2 per building — ground floor
 	# + the top storey when there is one. Warm, modest range, never shadow-casting.
 	if bool(idict["lit"]):
-		core.add_child(_room_light(Vector3(0.0, minf(sh - 0.5, 2.6), 0.0)))
+		var lrng := clampf(maxf(iw, idz) * 0.75, 6.0, 11.0)   # reach the corners of a wide ground floor
+		core.add_child(_room_light(Vector3(0.0, minf(sh - 0.5, 2.6), 0.0), lrng))
 		if floors >= 2:
-			core.add_child(_room_light(Vector3(0.0, height - 0.7, 0.0)))
+			core.add_child(_room_light(Vector3(0.0, height - 0.7, 0.0), lrng))
 
 
 # The swinging door panel per the DOOR NODE CONTRACT: a Node3D LEAF whose origin is the HINGE EDGE
@@ -415,11 +450,11 @@ static func _slab_with_hole(w: float, d: float, t: float, hole: Rect2, mat: Mate
 
 
 # One warm interior room light, inside the pinned budget (max 2 per building, range ~6, no shadows).
-static func _room_light(pos: Vector3) -> OmniLight3D:
+static func _room_light(pos: Vector3, rng: float = 6.0) -> OmniLight3D:
 	var l := OmniLight3D.new()
 	l.light_color = Color(1.0, 0.87, 0.66)
-	l.light_energy = 1.1
-	l.omni_range = 6.0
+	l.light_energy = 1.35
+	l.omni_range = rng
 	l.shadow_enabled = false
 	l.light_specular = 0.25
 	l.position = pos

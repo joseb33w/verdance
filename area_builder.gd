@@ -336,6 +336,7 @@ func _on_dl(result: int, code: int, _h: PackedStringArray, body: PackedByteArray
 		_refetch(url)   # #9: transient failure -> re-download after a short backoff (the _ensure slot stays HELD)
 	else:
 		_pending -= 1   # retries exhausted: release the slot -> the neutral gray "loading" placeholder shows
+		print("GOGI_PLACEHOLDER scenery ", url)   # verify.mjs asset-fail gate: a placeholder is now visible
 
 
 # #9: re-issue a failed/corrupt download after a short backoff. The _ensure slot stays HELD (_pending is

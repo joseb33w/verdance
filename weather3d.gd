@@ -68,6 +68,7 @@ var env: Environment
 var sun: DirectionalLight3D
 var cam: Node3D                      # particles follow this (the camera/rig)
 var time_state := "day"             # last-applied TIME key (day/night/sunrise/sunset) — read back by the web gogiGetTime hook
+var no_fog := false                 # world.json sky {"fog": false} hard-disables distance fog on EVERY weather (incl. cycles)
 
 var _sky_mat: ProceduralSkyMaterial
 var _cur := {}                       # current (lerped) numeric state
@@ -114,6 +115,7 @@ func setup(environment: Environment, sun_light: DirectionalLight3D, cam_node: No
 
 ## Configure from the build request. cfg = {time, weather} OR {cycle:[...], loop}.
 func apply(cfg: Dictionary) -> void:
+	no_fog = cfg.get("fog", null) == false   # explicit sky {"fog": false} -> kill distance fog on every preset
 	if cfg.has("cycle") and cfg["cycle"] is Array and (cfg["cycle"] as Array).size() > 0:
 		_cycle = []
 		for seg in cfg["cycle"]:
@@ -210,7 +212,7 @@ func _apply_now() -> void:
 		# same defence for ambient — lightning adds here too, never wash the scene out
 		env.ambient_light_energy = clampf(float(_cur.get("ambient_energy", 1.0)) + _flash, 0.0, 1.3)
 		var fog := float(_cur.get("fog", 0.0))
-		env.fog_enabled = fog > 0.0001
+		env.fog_enabled = fog > 0.0001 and not no_fog   # sky {"fog":false} overrides every weather preset
 		if env.fog_enabled:
 			env.fog_density = fog
 			env.fog_light_color = _cur.get("horizon", Color(0.7, 0.75, 0.8))

@@ -424,6 +424,7 @@ func _mount_model(spec: Dictionary, model: Node3D) -> AABB:
 	mi.material_override = m
 	mi.position.y = 0.65
 	add_child(mi)
+	print("GOGI_PLACEHOLDER vehicle ", profile)   # verify.mjs asset-fail gate: a gray vehicle box is visible
 	_visual = mi
 	return AABB(Vector3(bm.size.x * -0.5, 0.0, bm.size.z * -0.5), bm.size)
 
@@ -486,14 +487,19 @@ func _setup_mount(spec: Dictionary, ab: AABB) -> void:
 		# land at the belly/ground and sink the RIDER UNDER the mount ("mounts the character below it").
 		# Trust the scan only when it lands in a plausible BACK-LINE band of the AABB; otherwise use the
 		# per-profile SEAT_FRACTION of the AABB height, which is robust across rigs.
-		var frac_y := ab.position.y + float(SEAT_FRACTION.get(profile, 0.7)) * ab.size.y
+		var frac_y := ab.position.y + float(SEAT_FRACTION.get(profile, 0.6)) * ab.size.y
 		var dy := _dorsal_y(centre.x, seat_z, ab)
 		var lo := ab.position.y + 0.45 * ab.size.y
-		var hi := ab.position.y + 0.98 * ab.size.y
+		# Upper bound was 0.98 — that accepted a scan landing on the animal's HEAD / NECK / ANTLERS /
+		# raised TAIL, which inflate the AABB height, so the rider sat way up on top ("mounted too
+		# high"). A quadruped's rideable back sits at/below ~0.72 of total height even head-up; a scan
+		# above that is an extremity, so reject it and fall back to the back-line fraction (erring
+		# slightly LOW reads as "seated", erring high reads as "floating above").
+		var hi := ab.position.y + 0.72 * ab.size.y
 		if is_finite(dy) and dy >= lo and dy <= hi:
 			seat = Vector3(centre.x, dy, seat_z)   # scan landed on the back — hips at marker +0.12
 		else:
-			seat = Vector3(centre.x, frac_y, seat_z)   # bogus/absent scan -> reliable AABB back-line fraction
+			seat = Vector3(centre.x, frac_y, seat_z)   # bogus/too-high/absent scan -> reliable back-line fraction
 	_mount_marker = Node3D.new()
 	_mount_marker.name = "MountMarker"
 	_mount_marker.position = seat

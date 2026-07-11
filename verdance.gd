@@ -895,6 +895,7 @@ func _state_json() -> String:
 		"x": px, "y": py, "z": pz,
 		"in_vehicle": in_veh, "vehicle_profile": veh_prof,
 		"swimming": bool(main.swimming),
+		"fog": main.weather != null and main.weather.env != null and main.weather.env.fog_enabled,
 	})
 
 
