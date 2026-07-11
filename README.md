@@ -5,7 +5,7 @@ single-threaded web export). You are a Warden of a living 800×800 m world split
 connected Reaches — The Forest, The Lake, The Spire City, Frostpeak — slowly being drained
 by a grey **Fade**. Relight the four Beacons and restore it.
 
-**Play:** https://preview.myapping.com/cloud-pdunxmcf6r3gqaagf06a/
+**Play:** https://preview.myapping.com/cloud-ln4jfbfjx60zaprwslze/
 
 ## Two ways to play (title screen)
 - **FREE ROAM** — every Reach open, the full vehicle fleet, all six mounts pre-tamed, every
@@ -19,9 +19,10 @@ by a grey **Fade**. Relight the four Beacons and restore it.
 ## The world
 - One contiguous 50×50-cell streamed chunk world (seamless, no loading doors) with rolling
   terrain, a real swimmable lake, a connected highway network, and a day/night cycle with
-  **per-Reach weather** (clear forest, misty lake, neon city nights, Frostpeak snow).
-- 20 Meshy-generated signature assets: the Warden, Fade-stalkers, civilians, a rigged
-  Greatstag/Frosthorn ram/Bronzeshell beetle, the full vehicle fleet (roadster, buggy, truck,
+  **per-Reach weather** (clear skies over the Forest and Lake, neon city nights, Frostpeak
+  snow) — crisp to the horizon, no distance fog.
+- 21 Meshy-generated signature assets: the Warden, Fade-stalkers, civilians, a rigged
+  Greatstag/Frosthorn ram/Bronzeshell beetle/Skydrake drake, the full vehicle fleet (roadster, buggy, truck,
   tank, motorcycle, speedboat, ferry, plane, helicopter, jet glider), the Reach Beacon and the
   Spire Core monolith.
 - Enterable multi-floor interiors: the Grand Mall, two museums (city + lake island), the

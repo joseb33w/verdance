@@ -367,6 +367,11 @@ func setup(spec: Dictionary, model: Node3D) -> void:
 	_label.outline_size = 12
 	_label.outline_modulate = Color(0, 0, 0, 0.8)
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	# FIXED screen size: a perspective-scaled label fills a third of a phone screen when the
+	# camera stands next to the hull (giant clipped "DRI…"); fixed_size keeps it a readable cue
+	# at every distance and the HUD USE prompt owns the close range anyway.
+	_label.fixed_size = true
+	_label.pixel_size = 0.0006
 	_label.position = Vector3(0.0, _height + 0.8, 0.0)
 	_label.visible = false
 	add_child(_label)
@@ -1283,13 +1288,14 @@ func set_water(level: float) -> void:
 # USE dispatch from the interaction system: walk up -> board; while driving -> exit.
 # Mid-choreography USE is a no-op (this is the exit-mid-enter guard for the player path;
 # the hot-reload free path is covered by _exit_tree's force-restore).
-func use(driver: CharacterBody3D) -> void:
+func use(driver: CharacterBody3D) -> bool:
 	if _state == S_ENTERING or _state == S_EXITING:
-		return
+		return false   # mid-choreography — the caller may retry shortly (a swallowed press reads as a dead button)
 	if driving:
 		exit()
 	else:
 		enter(driver)
+	return true
 
 
 # Swap the player IN. Instant boards (fused-GLB vehicles + the parametric tank): the Wave-1

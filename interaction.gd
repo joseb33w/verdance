@@ -87,7 +87,7 @@ func _physics_process(_d: float) -> void:
 		prompt.text = ""
 		return
 	if _speaking:
-		prompt.text = "🔊  " + _speaker_name + "  is speaking…"
+		prompt.text = _speaker_name + " is speaking..."
 		return
 	if active:
 		prompt.text = "tap dialogue / USE to continue"
@@ -95,7 +95,7 @@ func _physics_process(_d: float) -> void:
 	var it = _nearest(2.9)
 	# empty labels render NO prompt at all (a driven vehicle pins itself as the nearest item and
 	# returns "" — the HUD stays clean during rides; the USE button still exits, routed by kind)
-	prompt.text = ("USE  ▸  " + it.label) if (it and String(it.label) != "") else ""
+	prompt.text = ("USE > " + it.label) if (it and String(it.label) != "") else ""
 
 
 # ---------------- registration (visuals under area_parent) ----------------
@@ -467,7 +467,13 @@ func _use_vehicle(it: Dictionary) -> void:
 		return
 	var v = it.get("node")
 	if v != null and is_instance_valid(v) and player is CharacterBody3D:
-		(v as Vehicle).use(player as CharacterBody3D)
+		if not (v as Vehicle).use(player as CharacterBody3D):
+			# boarding guard mid enter/exit choreography: retry once shortly instead of
+			# silently eating the press (an eaten USE reads as a broken button on touch)
+			var t := get_tree().create_timer(0.45)
+			t.timeout.connect(func() -> void:
+				if is_instance_valid(v) and player is CharacterBody3D and not (v as Vehicle).driving:
+					(v as Vehicle).use(player as CharacterBody3D))
 
 
 # ---------------- sittable furniture (Wave 3) ----------------
@@ -689,8 +695,19 @@ func _build_ui(hud: CanvasLayer) -> void:
 	prompt = Label.new()
 	prompt.add_theme_font_size_override("font_size", 26)
 	prompt.add_theme_color_override("font_color", Color(1, 1, 0.6))
-	prompt.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	prompt.position = Vector2(-160, -270)
+	# Proportional band at ~58% height, full width, centered text: over the play area and clear
+	# of the right-hand button columns at ANY aspect (a CENTER_BOTTOM offset label rendered
+	# straight across SHEATHE on phones).
+	prompt.anchor_left = 0.0
+	prompt.anchor_right = 1.0
+	prompt.anchor_top = 0.58
+	prompt.anchor_bottom = 0.58
+	prompt.offset_top = 0.0
+	prompt.offset_bottom = 40.0
+	prompt.offset_left = 0.0
+	prompt.offset_right = 0.0
+	prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hud.add_child(prompt)
 
 	# System-message box (chest opened / door locked / item found) — moved to the TOP so it

@@ -256,7 +256,9 @@ static func _build_shell(root: Node3D, idict: Dictionary, foot: Vector2, floors:
 	var inner_mat := (GSurf.surface("plaster") as StandardMaterial3D).duplicate()
 	inner_mat.emission_enabled = true
 	inner_mat.emission = Color(0.95, 0.82, 0.62)
-	inner_mat.emission_energy_multiplier = 0.06
+	# interior "glow" (spec-driven, default 1.0): landmark interiors (the finale tower) raise it so
+	# storeys between the two budgeted lights never read as a black void on the climb.
+	inner_mat.emission_energy_multiplier = 0.06 * clampf(float(idict.get("glow", 1.0)), 0.2, 10.0)
 	var floor_mat := GSurf.surface("wood")
 	var stair_mat := GSurf.surface("timber")
 	var door_face := String(idict["door_face"])
@@ -375,6 +377,10 @@ static func _build_shell(root: Node3D, idict: Dictionary, foot: Vector2, floors:
 		core.add_child(_room_light(Vector3(0.0, minf(sh - 0.5, 2.6), 0.0), lrng))
 		if floors >= 2:
 			core.add_child(_room_light(Vector3(0.0, height - 0.7, 0.0), lrng))
+		if floors >= 6:
+			# a third mid-tower light for real towers: without it the 6+ storeys between the two
+			# budgeted lights are a black climb (QA: finale ascent happened in the darkest room)
+			core.add_child(_room_light(Vector3(0.0, float(floors) * 0.5 * sh + 2.0, 0.0), maxf(lrng, sh * 1.2)))
 
 
 # The swinging door panel per the DOOR NODE CONTRACT: a Node3D LEAF whose origin is the HINGE EDGE

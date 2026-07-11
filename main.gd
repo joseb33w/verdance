@@ -130,6 +130,7 @@ func _ready() -> void:
 	win.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 	win.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
 	win.size_changed.connect(_relayout_ui)
+	_fit_ui_scale()
 	if OS.has_feature("web"):
 		var o = JavaScriptBridge.eval("window.location.origin", true)
 		if typeof(o) == TYPE_STRING and String(o) != "":
@@ -1635,9 +1636,27 @@ func _build_hud() -> void:
 	_relayout_ui()
 
 
+# The design base is PORTRAIT 720x1280 with aspect EXPAND, which scales the UI by the WIDTH
+# ratio — a LANDSCAPE phone (e.g. 860x400) therefore renders the whole UI at ~0.31x design
+# scale (7px stats text, 41px-tall buttons). Rescale from the SHORT side instead so text and
+# buttons keep their designed physical size at any orientation.
+func _fit_ui_scale() -> void:
+	var win := get_window()
+	var sz: Vector2 = Vector2(win.size)
+	if sz.x <= 0.0 or sz.y <= 0.0:
+		return
+	# content_scale_factor MULTIPLIES the automatic expand scale (min of the per-axis ratios),
+	# so apply the ratio between the wanted short-side scale and the automatic one.
+	var auto_scale := minf(sz.x / 720.0, sz.y / 1280.0)
+	if auto_scale <= 0.0:
+		return
+	win.content_scale_factor = (minf(sz.x, sz.y) / 720.0) / auto_scale
+
+
 # Reposition the HUD against the LIVE (expanded) viewport — called on every window resize /
 # rotation so portrait AND landscape phones get on-screen controls (never a stale base rect).
 func _relayout_ui() -> void:
+	_fit_ui_scale()
 	if hud_layer == null or _hud_btns.is_empty():
 		return
 	var vp := get_viewport().get_visible_rect().size

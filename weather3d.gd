@@ -115,7 +115,17 @@ func setup(environment: Environment, sun_light: DirectionalLight3D, cam_node: No
 
 ## Configure from the build request. cfg = {time, weather} OR {cycle:[...], loop}.
 func apply(cfg: Dictionary) -> void:
-	no_fog = cfg.get("fog", null) == false   # explicit sky {"fog": false} -> kill distance fog on every preset
+	# STICKY: only an apply() that explicitly carries a "fog" key may change the hard-disable.
+	# Region/day-cycle re-applies ({time,weather} / {cycle} with no "fog" key) used to RESET
+	# no_fog to false, silently re-enabling distance fog on the first weather tick after the
+	# world.json sky {"fog": false} boot apply (QA P0: Frostpeak white-out).
+	if cfg.has("fog"):
+		no_fog = cfg.get("fog", null) == false
+	if cfg.has("cycle") and cfg["cycle"] is Array:
+		for seg0 in cfg["cycle"]:
+			if seg0 is Dictionary and (seg0 as Dictionary).has("fog"):
+				no_fog = (seg0 as Dictionary).get("fog", null) == false
+				break
 	if cfg.has("cycle") and cfg["cycle"] is Array and (cfg["cycle"] as Array).size() > 0:
 		_cycle = []
 		for seg in cfg["cycle"]:

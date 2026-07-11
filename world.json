@@ -24749,7 +24749,8 @@
       "door": "arch",
       "door_face": "s",
       "rooms": 0,
-      "lit": true
+      "lit": true,
+      "glow": 6.0
      }
     }
    ],
@@ -74890,7 +74891,7 @@
     49,
     31
    ],
-   "weather": "fog"
+   "weather": "clear"
   },
   {
    "id": "forest",

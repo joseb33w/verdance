@@ -617,16 +617,21 @@ func _build_overlay_ui() -> void:
 	_compass.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_compass.add_theme_font_size_override("font_size", 19)
 	_compass.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
-	_compass.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	# TOP_WIDE: the label spans the full width and centers its text — a CENTER_TOP zero-size
+	# label GROWS RIGHTWARD from screen centre, clipping long text at the edge / behind STABLE.
+	_compass.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_compass.offset_top = 132.0   # below the compact stats block + hp bar (no top-strip collisions)
+	_compass.offset_bottom = 160.0
 	main.hud_layer.add_child(_compass)
 	_toast = Label.new()
 	_toast.text = ""
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_toast.add_theme_font_size_override("font_size", 26)
 	_toast.add_theme_color_override("font_color", Color(0.95, 1.0, 0.9))
-	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_toast.offset_top = 200.0
+	_toast.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_toast.offset_top = 252.0   # clear of the STABLE button row (ends ~236 UI px)
+	_toast.offset_bottom = 288.0
+	_toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_toast.modulate.a = 0.0
 	main.hud_layer.add_child(_toast)
 	main.hud_layer.visible = false   # hidden behind the title screen until a mode is chosen
