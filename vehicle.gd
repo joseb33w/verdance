@@ -237,6 +237,7 @@ var _wheel_axle := Vector3.UP             # local axle for a wheel spin: paramet
 var _ride_bob := 0.0                      # per-tick rider bounce (2.4) added to the MountMarker y
 var _seq: Tween = null                    # the running enter/exit choreography
 var _seated := false                      # GPose.sit/ride succeeded — driver rides the marker, visible
+var hull_len := 4.0                       # nose-to-tail metres after scale-normalize (USE-range credit for big hulls)
 var _seat_y_off := 0.0                    # driver-origin drop below the marker (per-rig hip height)
 
 # --- flight state (plane + dragon) ---
@@ -393,6 +394,7 @@ func _ready() -> void:
 # derived from.
 func _mount_model(spec: Dictionary, model: Node3D) -> AABB:
 	var target_len := float(spec.get("scale", PROFILES[profile]["length"]))
+	hull_len = target_len   # interaction credits half of this toward USE range on big hulls (QA W-3)
 	if model != null:
 		var ab := _world_aabb(model)
 		var dim := ab.size.z if (_is_mount and ab.size.z > 0.001) else maxf(ab.size.x, ab.size.z)
@@ -530,6 +532,10 @@ func _setup_mount(spec: Dictionary, ab: AABB) -> void:
 # _seat_driver, _seated=true — _park_driver/_track_driver's existing visible-seated path drives
 # it). Solid fused bodies (no viable floor) keep the Wave-1 hide, unchanged.
 func _setup_vehicle_seat(spec: Dictionary, ab: AABB) -> void:
+	if String(spec.get("cab", "")) == "closed":
+		# authored closed cab (helicopter / jet glider): the dorsal probe lands the driver ON the
+		# hull exterior of a closed-canopy aircraft (QA P1-A) — keep the hidden-driver swap-in.
+		return
 	var seat := _authored_seat(spec)
 	if not seat.is_finite():
 		var centre := ab.position + ab.size * 0.5

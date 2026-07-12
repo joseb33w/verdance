@@ -33,8 +33,8 @@
   "weather": "clear",
   "fog": false
  },
- "hero_model": "/cloud-ln4jfbfjx60zaprwslze/models/warden.glb",
- "default_npc_model": "/cloud-ln4jfbfjx60zaprwslze/models/civilian_m.glb",
+ "hero_model": "/cloud-0wenkpzrifygsnclmgvn/models/warden.glb",
+ "default_npc_model": "/cloud-0wenkpzrifygsnclmgvn/models/civilian_m.glb",
  "start_cell": [
   6,
   5
@@ -5579,7 +5579,7 @@
    ],
    "enemies": 3,
    "enemy_type": "frost_wraith",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb",
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb",
    "chest": {
     "pos": [
      0,
@@ -7404,7 +7404,7 @@
      2,
      -2
     ],
-    "model": "/cloud-ln4jfbfjx60zaprwslze/models/ranger.glb",
+    "model": "/cloud-0wenkpzrifygsnclmgvn/models/ranger.glb",
     "persona": "Elda, the steady ranger-warden of the Greenveil outpost; speaks in short, warm trail-wisdom and worries about the Fade creeping into the Reaches.",
     "lines": [
      "Elda: The Forest Beacon on the east ridge has gone dark \u2014 climb the hill past the pines and relight our courage.",
@@ -7812,7 +7812,7 @@
     }
    ],
    "landmark": {
-    "url": "/cloud-ln4jfbfjx60zaprwslze/models/beacon.glb",
+    "url": "/cloud-0wenkpzrifygsnclmgvn/models/beacon.glb",
     "collider": "box",
     "scale": 4.7
    },
@@ -7848,7 +7848,7 @@
    ],
    "enemies": 4,
    "enemy_type": "fade_stalker",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb",
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb",
    "chest": {
     "pos": [
      0,
@@ -8747,7 +8747,7 @@
    "populate": [
     {
      "set": [
-      "/cloud-ln4jfbfjx60zaprwslze/models/stag.glb"
+      "/cloud-0wenkpzrifygsnclmgvn/models/stag.glb"
      ],
      "count": 4,
      "vary": true,
@@ -10652,7 +10652,7 @@
    ],
    "enemies": 3,
    "enemy_type": "fade_stalker",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb",
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb",
    "chest": {
     "pos": [
      0,
@@ -12569,7 +12569,7 @@
    ],
    "enemies": 3,
    "enemy_type": "fade_stalker",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb",
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb",
    "chest": {
     "pos": [
      0,
@@ -14643,7 +14643,7 @@
    "populate": [
     {
      "set": [
-      "/cloud-ln4jfbfjx60zaprwslze/models/stag.glb"
+      "/cloud-0wenkpzrifygsnclmgvn/models/stag.glb"
      ],
      "count": 4,
      "vary": true,
@@ -18750,8 +18750,8 @@
    "populate": [
     {
      "set": [
-      "/cloud-ln4jfbfjx60zaprwslze/models/civilian_m.glb",
-      "/cloud-ln4jfbfjx60zaprwslze/models/civilian_f.glb"
+      "/cloud-0wenkpzrifygsnclmgvn/models/civilian_m.glb",
+      "/cloud-0wenkpzrifygsnclmgvn/models/civilian_f.glb"
      ],
      "count": 5,
      "vary": true,
@@ -19221,7 +19221,7 @@
      -5,
      0
     ],
-    "model": "/cloud-ln4jfbfjx60zaprwslze/models/civilian_f.glb",
+    "model": "/cloud-0wenkpzrifygsnclmgvn/models/civilian_f.glb",
     "persona": "Pip, a cheery fair vendor under the canopies; sells sweets, gossips about everything.",
     "lines": [
      "Pip: Candied plums! Oh \u2014 and if you're the new Warden, the museum beacon's been dark for weeks."
@@ -20731,7 +20731,7 @@
      -3,
      -3
     ],
-    "model": "/cloud-ln4jfbfjx60zaprwslze/models/civilian_f.glb",
+    "model": "/cloud-0wenkpzrifygsnclmgvn/models/civilian_f.glb",
     "persona": "Cass, an upbeat Spire City guide with a tablet full of trivia; loves the skyline, nervous about the dark beacon at the museum plaza.",
     "lines": [
      "Cass: Welcome to Spire City! The Grand Mall is right there \u2014 and the Spire Core is the tall one, you can't miss it.",
@@ -20741,8 +20741,8 @@
    "populate": [
     {
      "set": [
-      "/cloud-ln4jfbfjx60zaprwslze/models/civilian_m.glb",
-      "/cloud-ln4jfbfjx60zaprwslze/models/civilian_f.glb"
+      "/cloud-0wenkpzrifygsnclmgvn/models/civilian_m.glb",
+      "/cloud-0wenkpzrifygsnclmgvn/models/civilian_f.glb"
      ],
      "count": 5,
      "vary": true,
@@ -21259,8 +21259,8 @@
    "populate": [
     {
      "set": [
-      "/cloud-ln4jfbfjx60zaprwslze/models/civilian_m.glb",
-      "/cloud-ln4jfbfjx60zaprwslze/models/civilian_f.glb"
+      "/cloud-0wenkpzrifygsnclmgvn/models/civilian_m.glb",
+      "/cloud-0wenkpzrifygsnclmgvn/models/civilian_f.glb"
      ],
      "count": 5,
      "vary": true,
@@ -24976,8 +24976,8 @@
    "populate": [
     {
      "set": [
-      "/cloud-ln4jfbfjx60zaprwslze/models/civilian_m.glb",
-      "/cloud-ln4jfbfjx60zaprwslze/models/civilian_f.glb"
+      "/cloud-0wenkpzrifygsnclmgvn/models/civilian_m.glb",
+      "/cloud-0wenkpzrifygsnclmgvn/models/civilian_f.glb"
      ],
      "count": 5,
      "vary": true,
@@ -26870,7 +26870,7 @@
    ],
    "props": [
     {
-     "url": "/cloud-ln4jfbfjx60zaprwslze/models/beacon.glb",
+     "url": "/cloud-0wenkpzrifygsnclmgvn/models/beacon.glb",
      "pos": [
       5,
       5
@@ -26909,7 +26909,7 @@
    ],
    "enemies": 2,
    "enemy_type": "fade_stalker",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb",
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb",
    "chest": {
     "pos": [
      6,
@@ -27904,7 +27904,7 @@
    "populate": [
     {
      "set": [
-      "/cloud-ln4jfbfjx60zaprwslze/models/stag.glb"
+      "/cloud-0wenkpzrifygsnclmgvn/models/stag.glb"
      ],
      "count": 4,
      "vary": true,
@@ -29458,7 +29458,7 @@
      -3,
      -2
     ],
-    "model": "/cloud-ln4jfbfjx60zaprwslze/models/civilian_f.glb",
+    "model": "/cloud-0wenkpzrifygsnclmgvn/models/civilian_f.glb",
     "persona": "Maren, the lake's weathered lighthouse keeper; dry humour, reads the water like a book, misses the ferry traffic.",
     "lines": [
      "Maren: Lake Beacon's just west by the docks \u2014 mind the Fade things skulking in the reeds.",
@@ -31196,7 +31196,7 @@
     }
    ],
    "landmark": {
-    "url": "/cloud-ln4jfbfjx60zaprwslze/models/beacon.glb",
+    "url": "/cloud-0wenkpzrifygsnclmgvn/models/beacon.glb",
     "pos": [
      5,
      0
@@ -31222,7 +31222,7 @@
    ],
    "enemies": 3,
    "enemy_type": "fade_stalker",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb",
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb",
    "chest": {
     "pos": [
      -4,
@@ -32665,7 +32665,7 @@
     }
    ],
    "landmark": {
-    "url": "/cloud-ln4jfbfjx60zaprwslze/models/spire_core.glb",
+    "url": "/cloud-0wenkpzrifygsnclmgvn/models/spire_core.glb",
     "pos": [
      -5,
      -5
@@ -33294,7 +33294,7 @@
      5,
      1
     ],
-    "model": "/cloud-ln4jfbfjx60zaprwslze/models/civilian_m.glb",
+    "model": "/cloud-0wenkpzrifygsnclmgvn/models/civilian_m.glb",
     "persona": "Voss, the island museum's meticulous curator, marooned by choice among relics of the old Wardens; speaks in catalogue entries.",
     "lines": [
      "Voss: Exhibit twelve: the Lake Lightshard. Take it, Warden \u2014 it was always meant for you.",
@@ -33729,7 +33729,7 @@
    ],
    "enemies": 3,
    "enemy_type": "fade_stalker",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb",
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb",
    "chest": {
     "pos": [
      0,
@@ -35557,7 +35557,7 @@
    "populate": [
     {
      "set": [
-      "/cloud-ln4jfbfjx60zaprwslze/models/stag.glb"
+      "/cloud-0wenkpzrifygsnclmgvn/models/stag.glb"
      ],
      "count": 4,
      "vary": true,
@@ -52561,7 +52561,7 @@
    ],
    "enemies": 2,
    "enemy_type": "frost_wraith",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb"
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb"
   },
   {
    "cell": [
@@ -53154,7 +53154,7 @@
    ],
    "enemies": 3,
    "enemy_type": "fade_stalker",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb",
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb",
    "chest": {
     "pos": [
      0,
@@ -55128,7 +55128,7 @@
    ],
    "enemies": 3,
    "enemy_type": "frost_wraith",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb"
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb"
   },
   {
    "cell": [
@@ -57602,7 +57602,7 @@
     }
    ],
    "landmark": {
-    "url": "/cloud-ln4jfbfjx60zaprwslze/models/beacon.glb",
+    "url": "/cloud-0wenkpzrifygsnclmgvn/models/beacon.glb",
     "collider": "box",
     "scale": 4.7
    },
@@ -57624,7 +57624,7 @@
    ],
    "enemies": 4,
    "enemy_type": "frost_wraith",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb"
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb"
   },
   {
    "cell": [
@@ -57698,7 +57698,7 @@
    ],
    "enemies": 2,
    "enemy_type": "frost_wraith",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb",
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb",
    "chest": {
     "pos": [
      -4,
@@ -61554,7 +61554,7 @@
    ],
    "enemies": 3,
    "enemy_type": "frost_wraith",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb"
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb"
   },
   {
    "cell": [
@@ -62694,7 +62694,7 @@
    "populate": [
     {
      "set": [
-      "/cloud-ln4jfbfjx60zaprwslze/models/ram.glb"
+      "/cloud-0wenkpzrifygsnclmgvn/models/ram.glb"
      ],
      "count": 3,
      "vary": true,
@@ -63957,7 +63957,7 @@
    "populate": [
     {
      "set": [
-      "/cloud-ln4jfbfjx60zaprwslze/models/ram.glb"
+      "/cloud-0wenkpzrifygsnclmgvn/models/ram.glb"
      ],
      "count": 3,
      "vary": true,
@@ -65276,7 +65276,7 @@
    "populate": [
     {
      "set": [
-      "/cloud-ln4jfbfjx60zaprwslze/models/ram.glb"
+      "/cloud-0wenkpzrifygsnclmgvn/models/ram.glb"
      ],
      "count": 3,
      "vary": true,
@@ -66531,7 +66531,7 @@
      4,
      2
     ],
-    "model": "/cloud-ln4jfbfjx60zaprwslze/models/civilian_m.glb",
+    "model": "/cloud-0wenkpzrifygsnclmgvn/models/civilian_m.glb",
     "persona": "Orin, a gruff Frostpeak mountain guide wrapped in furs; counts avalanches like sheep and respects the mountain more than people.",
     "lines": [
      "Orin: Summit relay's up the switchbacks \u2014 frost wraiths thick near the top. Beacon's beside the relay mast.",
@@ -71217,7 +71217,7 @@
    ],
    "enemies": 3,
    "enemy_type": "fade_stalker",
-   "enemy_model": "/cloud-ln4jfbfjx60zaprwslze/models/fade_stalker.glb",
+   "enemy_model": "/cloud-0wenkpzrifygsnclmgvn/models/fade_stalker.glb",
    "chest": {
     "pos": [
      0,
@@ -74594,7 +74594,7 @@
     291
    ],
    "profile": "car",
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/roadster.glb",
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/roadster.glb",
    "name": "Roadster"
   },
   {
@@ -74616,7 +74616,7 @@
     189
    ],
    "profile": "car",
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/buggy.glb",
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/buggy.glb",
    "name": "Dune Buggy"
   },
   {
@@ -74625,7 +74625,7 @@
     300
    ],
    "profile": "car",
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/truck.glb",
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/truck.glb",
    "name": "Utility Truck"
   },
   {
@@ -74634,7 +74634,7 @@
     291
    ],
    "profile": "car",
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/motorcycle.glb",
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/motorcycle.glb",
    "name": "Motorcycle",
    "scale": 2.4,
    "seat": [
@@ -74649,7 +74649,7 @@
     179
    ],
    "profile": "tank",
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/tank.glb",
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/tank.glb",
    "name": "Tank"
   },
   {
@@ -74658,7 +74658,7 @@
     280
    ],
    "profile": "boat",
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/speedboat.glb",
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/speedboat.glb",
    "name": "Speedboat",
    "seat": [
     0.0,
@@ -74672,7 +74672,7 @@
     296
    ],
    "profile": "boat",
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/ferry.glb",
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/ferry.glb",
    "name": "Lake Ferry",
    "scale": 9.0,
    "seat": [
@@ -74687,7 +74687,7 @@
     344
    ],
    "profile": "plane",
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/plane.glb",
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/plane.glb",
    "name": "Bush Plane",
    "scale": 7.0
   },
@@ -74697,14 +74697,10 @@
     312
    ],
    "profile": "plane",
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/helicopter.glb",
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/helicopter.glb",
    "name": "Helicopter",
    "scale": 6.0,
-   "seat": [
-    0.0,
-    1.1,
-    0.4
-   ]
+   "cab": "closed"
   },
   {
    "pos": [
@@ -74712,9 +74708,10 @@
     344
    ],
    "profile": "plane",
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/glider.glb",
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/glider.glb",
    "name": "Jet Glider",
-   "scale": 6.5
+   "scale": 6.5,
+   "cab": "closed"
   },
   {
    "pos": [
@@ -74722,7 +74719,7 @@
     120
    ],
    "profile": "horse",
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/stag.glb",
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/stag.glb",
    "name": "Wild Greatstag",
    "stable_id": "stag",
    "tamed_name": "Greatstag",
@@ -74738,7 +74735,7 @@
    "stable_id": "dragon",
    "tamed_name": "Skydrake",
    "scale": 4.5,
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/drake.glb"
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/drake.glb"
   },
   {
    "pos": [
@@ -74770,7 +74767,7 @@
     701
    ],
    "profile": "horse",
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/ram.glb",
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/ram.glb",
    "name": "Wild Frosthorn",
    "stable_id": "ram",
    "tamed_name": "Frosthorn",
@@ -74782,7 +74779,7 @@
     536
    ],
    "profile": "horse",
-   "model": "/cloud-ln4jfbfjx60zaprwslze/models/beetle.glb",
+   "model": "/cloud-0wenkpzrifygsnclmgvn/models/beetle.glb",
    "name": "Wild Bronzeshell",
    "stable_id": "beetle",
    "tamed_name": "Bronzeshell",

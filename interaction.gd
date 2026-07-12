@@ -341,7 +341,16 @@ func _nearest(rng: float):
 			var vn = it.get("node")
 			if vn == null or not is_instance_valid(vn):
 				continue
-			it.pos = (vn as Node3D).global_position       # the car MOVES — track the live node
+			if main_ref != null and main_ref.get("active_vehicle") == vn:
+				# PIN the DRIVEN vehicle to the player (distance 0): a tall mount seats the rider
+				# >2.9m from the vehicle ORIGIN, so an origin-distance test made the USE-button
+				# exit silently dead (QA P1-B: raptor/mirewyrm never dismounted via USE).
+				it.pos = player.global_position
+			else:
+				it.pos = (vn as Node3D).global_position       # the car MOVES — track the live node
+				# big hulls (scale-9 ferry): allow USE anywhere along the hull, not only within
+				# 2.9m of the origin — credit half the hull length toward the range (QA W-3)
+				it.reach = clampf(float(vn.get("hull_len")) * 0.5 - 0.5, 0.0, 6.0)
 			it.label = (vn as Vehicle).prompt_label()     # "Drive …" parked / "" while driven
 		if it.kind == "seat":
 			var sn = it.get("node")
@@ -361,7 +370,7 @@ func _nearest(rng: float):
 			var ln = it.get("node")
 			if ln != null and not is_instance_valid(ln):
 				continue   # ladder node freed (eviction in flight) — remove_cell drops the entry
-		var d: float = player.global_position.distance_to(it.pos)
+		var d: float = player.global_position.distance_to(it.pos) - float(it.get("reach", 0.0))
 		if d < bd:
 			bd = d
 			best = it

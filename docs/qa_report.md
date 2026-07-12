@@ -1,82 +1,70 @@
-# QA REPORT — VERDANCE: Warden of the Four Reaches
-**Build:** repo @ fa17b8c (+ uncommitted session changes) · export `/workspace/repo/out` · live `https://preview.myapping.com/cloud-ln4jfbfjx60zaprwslze/index.html`
-**Method:** vetted verify.mjs harness (local serve w/ build-prefix symlink; watchdog extended 120s→900s for SwiftShader) + 7 targeted Playwright probes against the **live** URL using the gogi* QA hooks. All screenshots in `/workspace/verify/qa/`. State assertions read `gogiVerdance()` / `gogiGetPlayer()` deltas; no tautological checks.
+# QA Report — VERDANCE: Warden of the Four Reaches
+**Build:** joseb33w/verdance @ f999011 (working tree = deployed export) · export `/workspace/repo/out` (104MB, pck 8.8MB) · Godot 4.6.3 web nothreads
+**QA method:** canonical verify.mjs (PASS, exit 0) + 9 custom adversarial playwright probes against the exact export, ~30 screenshots eyeballed. Full logs: `/tmp/verify.log`, `/tmp/probe*.log`; frames in `/workspace/verify/qa/`.
 
-## VERDICT: FAIL (2 P0)
+## VERDICT: PASS (0 P0 · 2 P1 · 6 warns)
 
----
-
-## P0 — SHIP BLOCKERS
-
-### ❌ P0-1: The finale cannot be completed — "Stabilize the Spire Core" is unreachable → campaign/victory is dead
-- **Evidence (3 independent runs):**
-  - Injected a save with all 4 beacon flags (`gogiInjectSave` + `gogiChooseMode('continue')` — restore itself worked: hp/gold/equip/flags/lit all correct). Teleported to the crown `(312,248,59.2)`: `use_label:""`, `gogiUse()` → `victory:false` (qa4).
-  - Height scan `y=59…69` at [312,248] (qa5, qa6): the "Stabilize the Spire Core" prompt **never** appears at any height; the player **falls through** every y between ~59.5 and 69 (no walkable top slab found where one was specced).
-  - Highest stable footing found inside the tower: **y≈59.4** (qa3 `tower-top.png` — a dark slab + stair, no beacon in sight).
-- **Root cause:** `verdance.gd:_build_beacons()` places the core USE action at `terrain.height(312,248) + y_off(59.5)` ≈ **y 67** (terrain there is ~7.5). `interaction._nearest()` uses **3-D** distance with a 2.9 m range (interaction.gd:364). The intended "top walking slab 58.5 m" either doesn't exist as a collider at terrain+58.5 (≈66 — teleports onto it fall through) or is the floor at ~59.5; either way the action point is **~7.6 m above the best standing surface** → the prompt can never fire. `_use_beacon("core")` → `_do_victory()` is therefore dead code in real play (qgcheck's graph pass can't see this — it's a spatial bug).
-- **Fix direction:** seat the core beacon/action ON the actual top slab (compute slab world-y from the built structure, or set the action pos to `slab_y + 1`), and verify a collider exists on the floor-10 walking slab; alternatively give the core action a taller vertical tolerance (XZ distance + |dy| ≤ ~4). Then re-run: label must appear at the slab and `gogiUse` must set `world_restored` → victory overlay.
-- Note: ground-level beacons are fine — Frostpeak showed `USE ⟳ Relight Frostpeak Beacon` in-range (qa1 `frostpeak.png`).
-
-### ❌ P0-2: Distance fog returns in Frostpeak — direct acceptance-item #9 violation, whole reach is a white-out
-- **Evidence:** `gogiVerdance().fog === true` after entering Frostpeak [712,584] (qa1); `frostpeak.png` and the drake shots are ~90 % white haze — road/buildings barely readable, sky invisible. Fog is correctly **false** at spawn, forest, lake, city.
-- **Root cause:** `weather3d.gd:118` — `no_fog = cfg.get("fog", null) == false` is re-evaluated on **every** `apply()`. `verdance.gd:_apply_wx()` (region change + day-cycle segue) calls `weather.apply({time,weather}/{cycle})` **without** a `"fog"` key → `no_fog` resets to `false` → the snow preset (`fog: 0.013`) re-enables distance fog. The world.json `sky {"fog": false}` hard-disable only survives until the first region tick / cycle segment.
-- **Fix direction:** make `no_fog` sticky (only update it when the cfg **has** a `"fog"` key), or have `_apply_wx` pass `"fog": false` through. Re-check: `fog:false` at [712,584] and a crisp Frostpeak frame.
+Both prior P0s are independently re-verified FIXED. No ship-blocker class found. The two P1s below are real, small, player-visible defects worth fixing before (or right after) shipping.
 
 ---
 
-## P1 — MUST FIX (not ship-blocking)
+## Prior P0s — independently re-verified ✅
 
-1. ❗ **Finale tower top floor is near-black** (`tower-top.png`): the highest interior floor reads as a dark void — floor/stairs almost silhouettes. Ground floor is fine (`tower-ground.png`: white walls, readable, stairs). The finale moment happens in the darkest room in the game. Add interior lights/emissive on the upper floors (the spec said "roomy lit interiors" + a beacon at the crown).
-2. ❗ **Grand Mall (cell [16,12], ~[264,200]) — interior could not be confirmed.** Two probes teleported to the exact mall centre 25–30 s after arrival and stood on **bare grass** (no sidewalk ground, no 14×14 structure: `mall-inside.png`, `mall-in2.png`); a later probe one cell south after 60 s showed the surrounding city fully built (`mall-far-b/c.png` — real streets, multi-floor buildings, NPCs) but couldn't positively identify the mall building. Likely just very-late streaming of a heavy cell in the 5 fps container, but given a campaign step points there ("Ask guide Cass… Grand Mall"), please walk c16_12 on the preview and confirm the mall + its lit 2-room interior actually build and the S-face arch door opens.
-3. ❗ **Lake "deep water" at the user's named spot is only ~0.55 m deep** — at [616,290] the wade/swim gate flip-flops between runs (swimming:true in one, false 2 m away in another; terrain probe: h≈0.43 vs water level 1.0). Swim itself is correct where the water is genuinely ≥1 m (verified floating at surface, y=-0.1, at [656,288] — `deepswim2.png`). Deepen the lake bed around the marked swim spot so "deep water near [616,290]" is actually deep.
-
----
-
-## Acceptance list (user's 9 items)
-
-| # | Item | Result | Evidence |
-|---|------|--------|----------|
-| 1 | Stands ON ground while walking | ✅ | `on_floor:true`, y tracks terrain; `stand-side.png` feet on grass; `GOGI_HERO_SEAT 0.015` |
-| 2 | Swims in lake, floats at surface | ✅ w/ ❗P1-3 | `swimming:true`, floats at surface in real deep water (`deepswim2.png`); named spot [616,290] is only ~0.55 m deep (flip-flops) |
-| 3 | Rider sits ON mount's back (stag + drake) | ✅ | Stag: `stag-defaultcam.png` — astride, hips in contact, riding a road. Drake: boarded (`profile:dragon`), seated per coordinator's default-cam capture; `GOGI_SEAT_CONTACT` 0.000 both. My close-up garbage frames were the spring-arm entering the mount body after a pitch drag (see polish-4) |
-| 4 | Car + boat drive + DISMOUNT button | ✅ | Roadster: boarded, motion aligned to camera-forward (dot 1.00), steer yaw 0.02→0.56; Speedboat: boarded, drove (dot 0.74 — slow hull turn), both showed the DISMOUNT button and it **worked** (state → not in_vehicle). `car.png`, `boat.png` |
-| 5 | Enemies never one-shot | ✅ | Combat cell [21,5]: nearest enemy 120 hp → **58** after one frost-hammer hit (62 dmg ≤ cap 0.55×120=66), killed on a later hit — always ≥2 hits. `HIT_CAP_FRAC` verified in code + runtime |
-| 6 | No popup/red-flash on damage | ✅ | HP driven 100→28 across probes by real enemy attacks; zero overlays/banners in any frame (`combat.png`, `frostpeak.png`); `_flash_hurt()` is a no-op (per explicit user request — damage feedback is camera kick + audio) |
-| 7 | Interiors roomy + lit | ⚠️ split | Cabin [5,5]: inside is lit, timber floor, real hinged door (`cabin-in2.png`). Tower ground floor: lit, stairs up (`tower-ground.png`). Tower TOP floor: near-black (❗P1-1). Grand Mall: unconfirmed (❗P1-2) |
-| 8 | No gray placeholders / 404 assets | ✅ on live | **Zero** `GOGI_PLACEHOLDER` and zero real 404s across 7 live-URL runs; all 21 committed models resolve. (verify.mjs's local-serve run DID placeholder car/tank/horse/dragon — a local-static-server fetch artifact: the same files curl 200 locally and load clean on the live host. Not a product defect, but see "residual risk" below) |
-| 9 | No distance fog anywhere | ❌ **P0-2** | fog:false in forest/lake/city/spawn, **true in Frostpeak** (white-out frames) |
+| Prior P0 | Result | Evidence |
+|---|---|---|
+| **P0-1 finale** | ✅ FIXED | Injected 4-beacon save → continue mode → stood on the Spire tower top at **y=65.92** (real footing: first landing attempt fell while the cell streamed, second stood — collider is real, not a floating action point). `use_label="Stabilize the Spire Core"` → `gogiUse()` → `victory:true` + flag `world_restored` + "VERDANCE RESTORED" overlay w/ KEEP EXPLORING (26_victory.png). |
+| **P0-2 fog** | ✅ FIXED | Teleported into Frostpeak [712,584]: `fog:false` on arrival and across 5 weather ticks + forced `gogiSetTime("night")` → `gogiSetTime("day")` transitions — 7/7 samples false (probe1 `frost.fogSticky`). |
 
 ---
 
-## Adversarial sweep (mandatory classes)
+## ❗ P1 — must-fix (not ship-blockers)
 
-- **Engine/console:** boots, canvas renders, **no** GDScript/JS errors on live across all 7 runs (only sandbox Supabase `Failed to fetch` noise, filtered per contract). verify.mjs: engine boot PASS, canvas PASS, input-response PASS. ✅
-- **Winnability (qgcheck):** green — "world is winnable (2500 areas)" — but see P0-1: the graph pass can't see the spatial finale bug. ⚠️
-- **Movement/facing/camera:** WASD moves camera-relative; right-half drag orbits (yaw −3.33 rad after drag); hero shows BACK to follow-cam (`stag-defaultcam.png`, `boat.png`). ✅
-- **Input-binding sanity (auto-fire-on-look):** touch left=joystick, right=orbit, attack is a HUD button only; look-drag with an enemy present left enemy at full 120 hp and player hp unchanged. `emulate_mouse_from_touch=true` is guarded (desktop drag-look ignores emulated motion; no fire binding on pointer). ✅
-- **Combat feedback:** hits land through the real `_attack()` path (aim-assist verified in code — stationary attack acquires a nearby foe in any direction); enemy hp deltas real; hit SFX + swing anim invoked. ✅
-- **Enemy AI engages:** enemies streamed in, closed distance and damaged the idle player through the real path (hp 100→82→73 while standing still); non-modal feedback. ✅
-- **Mobile fill:** canvas = viewport at 400×860 and 860×400 (0,0 origin, no letterbox); UI viewport tracks aspect (720×1548 / 2752×1280); portrait gameplay HUD all on-screen (`hud-portrait.png`). ✅ (polish-6: toast overlaps STABLE)
-- **Title/modes:** title renders (`title-visible.png`), FREE ROAM + CAMPAIGN buttons; `?mode=free/campaign` deep links work; campaign starts with rusty_sword (no grant-all leak), Elda dialogue fires (`talks:1`). ✅ (full 5-quest chain not driven end-to-end — see "could not verify")
-- **Save/load:** `gogiInjectSave` + continue restores hp/gold/equip/flags/lit-beacons/position. ✅
-- **Day/night:** deterministic `gogiSetTime` probe — night is dark but readable with emissive window rows + lit NPCs (`city-night.png`), day clean, no blow-out (verify.mjs luma: night mean 33.9 vs day 156, 0 % clipped). ✅
-- **World persistence/boundary:** teleport far off-grid (850,850): terrain skirt + ground persist, no void fall (y stable ≈ terrain), world never vanishes; `_terrain_border_walls` adds invisible walls on true grid edges for on-foot play. ✅ (walk-into-wall not cleanly reproduced — teleports bypass walls by design)
-- **Character sourcing (Meshy mandate):** hero (warden.glb), NPCs (ranger/civilian_m/f), enemies (fade_stalker), mounts (stag/drake/ram/beetle) + all vehicles are Meshy per `models/meshy/MANIFEST.md` and render textured in-frame — no KayKit stand-ins in hero/NPC/enemy roles. Two library-animal mounts (Snake, Velociraptor) are creature rides, not characters. ✅
-- **Weapon-in-hand:** frost hammer gripped in hand (`stand-side.png`), rusty sword gripped (`cabin-in2.png` close-up), blade visible while mounted. ✅
-- **World richness:** 50×50 grid (800 m²), 190 parametric structures w/ real materials + window glow, 169 road cells, ~10 k scatter, populated city with crosswalks/streetlights/NPC crowds (`mall-far-b/c.png`, `city-day.png`); wilderness cells are intentional. verify.mjs "SPARSE" WARNs reflect the wilderness ratio, not a gray-box world. Flat-tint lint is a false positive (it matches the gray *placeholder* fallback pattern; real characters render textured). ✅
+**P1-A. Helicopter + Jet Glider seat the rider ON the hull exterior, not in the cockpit.**
+- Symptom: `veh_helicopter.png` — the warden perches on the rotor mast/cabin roof of a closed-cab helicopter; `veh_glider.png` — rider sits on the fuselage spine behind the glass canopy. Both read as a boarding bug at a glance. (Contract: driver visible in open vehicles, or plausibly hidden in a closed cab.)
+- Root cause: the probed/authored seat marker lands on the hull's dorsal surface for these two closed-canopy aircraft (`vehicle.gd` seat probe / `seat` spec: helicopter `[0,1.1,0.4]` × scale 6).
+- Fix direction: for these two entries either hide the driver like the tank's instant board, or drop the seat into the cabin volume (negative-Y seat inside the canopy). All 15 other vehicles/mounts seat correctly (tank/plane/truck driver plausibly in cab; cars/boat/moto/all 6 mounts astride with seat-contact 0.00–0.05).
 
-## Polish (P2)
-4. Camera spring-arm ignores the mount/vehicle body — pitching the camera puts the lens inside the stag/drake (garbage close-ups). Consider adding mounts to the SpringArm collision or a min-distance clamp while mounted.
-5. Water body recenters only on the *second* cell-cross after a long warp (tick defers water whenever the far skirt rebuilt; both share the 2-cell gate) — after teleports the lake renders as dry green seabed (`swim2.png`). Invisible in normal walking; worth a `_update_water` force on teleport.
-6. Portrait: discovery toast overlaps the STABLE button (`hud-portrait.png`).
-7. `GOGI_WHEELS`: all modeled vehicles report fused-static wheels (no spin) — accepted contract, noting for completeness.
+**P1-B. USE-button exit is silently dead on tall mounts (DISMOUNT button works).**
+- Symptom (proven on the Swiftclaw raptor): while riding, repeated `gogiUse()`/USE presses over 40s never dismount — yet the mount drives fine (moved 5.8m on W) and the DISMOUNT button exits instantly (probe5/5b). Mirewyrm showed the same. Stag/drake/frosthorn/bronzeshell USE-exit works.
+- Root cause: `interaction.gd _nearest(2.9)` measures 3D distance to the **vehicle origin** (`it.pos = vn.global_position`); the raptor's rider sits ~3.7m above the origin → the driven vehicle is never "nearest" → `try_use()` no-ops. The line-96 comment ("a driven vehicle pins itself as the nearest item") is stale — no pinning actually happens.
+- Fix direction: while `main.active_vehicle != null`, pin the driven vehicle's entry to the player position (distance 0) or route USE straight to `active_vehicle.exit()` (mirroring the seated-`stand_player()` guard). Same root cause also makes the ferry prompt hard to find (see W-3).
 
-## Could not verify (sandbox limits / scope)
-- Real audio playback (muted container — infra + `play_sfx`/music/ambient calls verified present), touch feel, true-GPU fidelity/FPS, Supabase `wss`/cloud saves (used the documented `gogiInjectSave` path instead).
-- Boarding choreography screenshots for the remaining 13 `vehicles[]` entries (tank/plane/helicopter/glider/ferry/truck/motorcycle/buggy/snake/raptor/ram/beetle + 2nd car): spawn-time `GOGI_SEAT_CONTACT` ≤ 0.05 for all, but only car/boat/stag/drake were boarded and screenshotted. Flight (plane profile) untested end-to-end.
-- Full campaign chain (5 quests) end-to-end; verified: campaign start, first talk objective, kill-count plumbing (`notify_kill`), beacon relight path at ground level, and the finale gate — which is where it breaks (P0-1).
-- On-foot stair climb of all 9 flights of the Spire Core (SwiftShader too slow); teleport probes stand in.
-- **Residual risk worth 5 minutes:** the local-serve verify run produced 5 `TypeError: Failed to fetch` + placeholder vehicles even though the same URLs curl 200 from the same server — models load clean on the live host, so shipping is unaffected, but if the deploy host ever serves slowly the same no-retry fetch path would leave permanent gray vehicles (cache miss → placeholder, no hot-swap on late arrival).
+---
 
-## Bottom line
-Core moment-to-moment play (walk/ride/drive/swim/fight, mobile HUD, save/load, day/night, no-popup damage) is solid and looks the part. Ship is blocked by two fixable defects: **the game cannot be won** (core beacon out of reach above the top slab) and **Frostpeak re-enables the banned distance fog** (explicit acceptance item). Fix + re-verify: crown label appears & victory fires; `fog:false` at [712,584].
+## ⚠️ Warns / polish
+
+- **W-1 Streaming pop-in is slow relative to frame budget.** At the goal cell [19,15] the Spire City content (65m tower, roads, concrete) took 60–90s of SwiftShader time (~2fps → ~150 frames) to appear; the roadster boarding shot shows the city fleet parked on bare grass before the ring filled in. On a 60fps device this is seconds, but verify's FEEL perf flagged a **worst frame of 817ms** during a walk — one frame is doing too much (GLB-parse burst / over-heavy cell build). Worth another amortization pass; not a blocker.
+- **W-2 Border containment is racy while the border cell streams.** `_terrain_border_walls` is real, but it only exists once the border cell BUILDS: walking east at [799,400] ~15s after arrival crossed to x=802.16 (probe6b). The world does NOT vanish (terrain + water persist, y stable at 850 and at −60,−60; content re-streams on return) — so this is escape-onto-empty-terrain, not the void-fall P0 class. Belt-and-braces: clamp player XZ to the authored grid bounds in `main.gd`.
+- **W-3 Ferry boarding prompt discoverability.** No "Drive Lake Ferry" prompt along most of the scale-9 hull (origin-distance ≤2.9m again, P1-B's cause); boarding works only right beside the hull center — took me 3 attempts to find it (probe3d). Rider then stands on the wheelhouse roof (acceptable for a ferry, slightly comic).
+- **W-4 World density (verifier lints):** chunk world is SPARSE (~0.4 weighted content/cell; ~13% of the 2500-cell bbox populated; clusters up to 800m apart). In-game the four settlements read as real places (city streets w/ towers+taxis+streetlights, forest outpost, lighthouse docks, snow relay), and the gaps read as intentional wilderness with scatter — but long rides cross a lot of empty green. Consider thickening content along the roads between reaches.
+- **W-5 Lake shallows render green** — around the ferry the water reads as a green field (shallow blend over green lakebed; `veh_ferry.png` looks beached on grass); deepen the bed under the ferry route or tint shallows bluer. Elsewhere the water reads correctly blue (mirewyrm/plane/dialog shots).
+- **W-6 Cell build can trap a standing player.** After idling 60s at [797,392] while the cell built around the player, the character was fully immobile (dx=dz=0 across 10 walk attempts w/ camera rotations — likely a scatter collider spawned overlapping the player). Reachable in practice only via teleport/fast-travel-ahead-of-streaming; consider a player-radius exclusion when placing scatter colliders.
+- Minor: City Car (parametric) driver's head clips slightly through the cab roof; Mirewyrm snake body renders semi-translucent teal (looks glassy).
+
+---
+
+## Dimension checklist (all with real deltas / eyeballed frames)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Engine boot, canvas, console | ✅ | verify PASS; **zero** SCRIPT ERROR/Parse/pageerror across all 9 probe sessions; only whitelisted sandbox TLS/404 noise |
+| Winnability (qgcheck) | ✅ | "quest-graph OK — world is winnable (2500 areas)" in /tmp/verify.log **+ finale proven end-to-end live** |
+| Movement + facing | ✅ | W→back visible / S→face visible (04/05); camera-relative deltas logged |
+| Camera orbit / pitch | ✅ | right-half drag orbits (02 vs 01); pitch clamps, never floor-stares; look-up = clean blue sky, **no grey ceiling** (61) |
+| Input-binding sanity | ✅ | look-drag beside live enemies: nearest_enemy_hp unchanged (no fire-on-look); attack only via ATTACK/hook; touch halves move/look; Space=jump |
+| Combat | ✅ | real path: enemy hp 120→58 in 3 swings, kill (alive 3→2), XP level-up Lv1→2, HP bar + hit feedback; stationary aim-assist in code and no whiff observed |
+| Enemy AI + non-modal damage | ✅ | wraiths converged (3 visible mid-frame in veh_drake.png), player hp 100→64 / 100→55 through real damage; `dialog_open:false` throughout — no modal, red-flash + shake in code |
+| World richness / ground / roads | ✅ | textured city (concrete+road markings+glass towers w/ lit windows+streetlights+taxi traffic), asphalt roads w/ centerlines (veh_stag), sand/snow/grass grounds, 9.9k scatter — no gray-box anti-pattern anywhere (see W-4 for sparseness between reaches) |
+| Character fidelity / sourcing | ✅ | hero warden.glb (gorgeous up close, 05), NPCs civilian_m/f + ranger, enemies fade_stalker — **all Meshy**; no flat-tint blobs (lint's hits are loading-placeholder materials only, and zero GOGI_PLACEHOLDER lines fired in any session); snake/raptor mounts + pig/fox are library **animals**, not humanoid roles |
+| No T-pose / clips present | ✅ | walk/attack/ride/wander/speak poses all varied across ~30 frames; mounts gait; zero frozen rigs seen |
+| Boarding — all 17 `vehicles[]` | ✅* | all 17 boarded via real USE path + screenshot each; seat-contact telemetry 0.000–0.050; *2 aircraft seat wrong → P1-A; ferry prompt → W-3 |
+| Weapon-in-hand | ✅ | frost hammer + Warden's Blade gripped in hand (01/20); stow-on-vehicle / keep-on-mount works (veh shots) |
+| Trigger zones / prompts | ✅ | beacon "Relight Frostpeak Beacon", chest "Open Chest", NPC "Talk to Keeper Maren" → talks 1, region discovery toasts, quest tracker w/ live direction+distance |
+| Day/night + lighting sanity | ✅ | deterministic gogiSetTime probe: night readable (luma mean 33.5, lamps/window-glow visible, 11_frost_night), day mean 152 with 0.0% clipped — no blown whites, no black night |
+| Mobile fill portrait + landscape | ✅ | 390×844 and 860×400: canvas = viewport exactly, all four corners world-filled, title + full HUD inside rect, no overlaps (40/41) |
+| World persistence / boundary | ✅/⚠️ | teleports 50m+ past every edge: terrain+water persist, y stable, no void fall, content re-streams on return; racy wall → W-2 |
+| Save/continue path | ✅ | gogiInjectSave → continue restored hp/gold/inventory/equipped/flags exactly; "Welcome back, Warden." |
+| Audio presence | ✅(warn-only) | AudioManager autoload + bus layout + play_sfx on attack/hurt/door/boarding — infra present per verify |
+
+## Could not verify (sandbox limits)
+Real-GPU fidelity & device framerate (SwiftShader ~2fps here), actual audio playback (muted container), true touch feel, Supabase cloud-save round-trip (TLS-proxied — save inject hook proven instead), multiplayer N/A.
