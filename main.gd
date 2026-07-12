@@ -1091,9 +1091,13 @@ func _norm(s: String) -> String:
 		# absolute /cloud-<id>/… (and /news-cloud-<id>/…) asset URLs, so after a rebuild to a NEW id
 		# every one 404s and renders as a gray placeholder. Re-root any such path onto the CURRENT
 		# build_id so the build's own committed assets resolve regardless of which id authored them.
-		if build_id != "" and (s.begins_with("/cloud-") or s.begins_with("/news-cloud-")):
+		if s.begins_with("/cloud-") or s.begins_with("/news-cloud-"):
 			var slash := s.find("/", 1)   # the '/' after the leading /<buildid> segment
 			if slash > 0:
+				# No build id in the page URL (localhost verify, custom domain) -> the export is
+				# served at the ROOT, so strip the stale prefix instead of keeping a dead path.
+				if build_id == "":
+					return origin + s.substr(slash)
 				return origin + "/" + build_id + s.substr(slash)
 		return origin + s
 	if "/" in s:

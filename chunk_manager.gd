@@ -1288,6 +1288,11 @@ func _asset_url(ref) -> String:
 
 
 func _resolve(u: String) -> String:
+	# Delegate to main's _norm so absolute /cloud-<id>/ paths get the SAME build-id self-heal
+	# scenery/vehicle URLs get — this resolver used to keep NPC/enemy models pinned to the
+	# stale authoring build's path (404 -> gray placeholder on any rebuild/bare-origin serve).
+	if world_main != null and world_main.has_method("_norm"):
+		return String(world_main.call("_norm", u))
 	if u.begins_with("http"):
 		return u
 	if u.begins_with("/"):

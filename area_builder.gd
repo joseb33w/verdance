@@ -79,10 +79,11 @@ var _cache_order: Array[String] = []  # LRU bookkeeping for `cache`: least-recen
 var region_cache := {}              # "<basename>:<region_rev>" -> parsed Dictionary (persists; re-entry skips re-fetch)
 var props_pool: Array = []          # prop urls from the manifest
 var env: Environment
-var _pending := 0                   # downloads not-yet-PARSED (Wave 4: gate stays up until parse, not just DL)
 var _retry := {}                    # url -> retry attempts used (#9: transient-fetch retry, like the hero's — a
                                     # cold-load "spawn before the fetch landed" race with NO retry was the red-box cause)
-const FETCH_RETRIES := 3
+var _inflight := {}                 # url -> true while a download+parse is in progress (dedupes concurrent _ensure calls)
+var _failed := {}                   # url -> true when retries exhausted (releases every _ensure waiting on it)
+const FETCH_RETRIES := 5
 var _parse_queue: Array = []        # [{url, body}] downloaded GLBs awaiting amortized main-thread parse (_process)
 var _ground_mat_cache := {}         # spec-key -> StandardMaterial3D (textured floors shared across cells)
 
@@ -305,18 +306,30 @@ func _region_base_dir() -> String:
 # ---------------- parallel download ----------------
 
 func _ensure(urls: Array) -> void:
-	_pending = 0
+	# RE-ENTRANT: concurrent callers (vehicle spawn racing a cell build on a slow boot) used to
+	# stomp a shared pending counter, releasing the earlier await before ITS fetches parsed —
+	# vehicles then spawned off a cache miss as gray placeholder boxes (no hot-swap exists for
+	# them). Each call now waits on ITS OWN url list; in-flight urls are deduped via _inflight.
 	for u in urls:
 		if cache.has(u):
 			_cache_touch(u)   # LRU: an already-cached asset this build needs is RECENT (don't evict it mid-build)
 			continue
-		_pending += 1
+		if _failed.has(u) or _inflight.has(u):
+			continue
+		_inflight[u] = true
 		var req := HTTPRequest.new()
 		add_child(req)
 		req.request_completed.connect(_on_dl.bind(u, req))
 		req.request(u)
 	var guard := 0
-	while _pending > 0 and guard < 2700:   # ~45s cap (raised for #9 retries + backoff on slow/cold loads)
+	while guard < 2700:   # ~45s cap (raised for #9 retries + backoff on slow/cold loads)
+		var waiting := false
+		for u in urls:
+			if not cache.has(u) and not _failed.has(u):
+				waiting = true
+				break
+		if not waiting:
+			return
 		await get_tree().process_frame
 		guard += 1
 
@@ -325,8 +338,8 @@ func _ensure(urls: Array) -> void:
 # generate_scene are heavy and single-threaded (nothreads WASM); when many downloads land the same
 # frame (an 18-asset R2 batch over HTTP/2) parsing them all inline stacked N generate_scene calls on
 # one frame -> the hitch. Instead we queue the raw bytes and parse them AMORTIZED in _process (≤ a
-# per-frame time budget). `_pending` (the _ensure gate) now counts downloads NOT-YET-PARSED, so it
-# decrements on parse (or on a failed download here) — _ensure still waits until everything is cached.
+# per-frame time budget). A url stays IN FLIGHT until parsed (or retries exhaust) — _ensure waits
+# on cache/_failed per its own url list, never a shared counter.
 func _on_dl(result: int, code: int, _h: PackedStringArray, body: PackedByteArray, url: String, req: HTTPRequest) -> void:
 	req.queue_free()
 	if result == HTTPRequest.RESULT_SUCCESS and code == 200 and body.size() > 0:
@@ -335,13 +348,14 @@ func _on_dl(result: int, code: int, _h: PackedStringArray, body: PackedByteArray
 		_retry[url] = int(_retry.get(url, 0)) + 1
 		_refetch(url)   # #9: transient failure -> re-download after a short backoff (the _ensure slot stays HELD)
 	else:
-		_pending -= 1   # retries exhausted: release the slot -> the neutral gray "loading" placeholder shows
+		_failed[url] = true   # retries exhausted: release waiters -> the neutral gray "loading" placeholder shows
+		_inflight.erase(url)
 		print("GOGI_PLACEHOLDER scenery ", url)   # verify.mjs asset-fail gate: a placeholder is now visible
 
 
-# #9: re-issue a failed/corrupt download after a short backoff. The _ensure slot stays HELD (_pending is
-# NOT decremented for a retry), so the gate waits for the retry instead of spawning a placeholder. This is
-# the vehicle/enemy/NPC-model equivalent of the hero's retry — the red boxes were a transient fetch race.
+# #9: re-issue a failed/corrupt download after a short backoff. The url stays IN FLIGHT (not marked
+# failed), so every _ensure gate waits for the retry instead of spawning a placeholder. This is the
+# vehicle/enemy/NPC-model equivalent of the hero's retry — the red boxes were a transient fetch race.
 func _refetch(url: String) -> void:
 	await get_tree().create_timer(0.25 * float(maxi(1, int(_retry.get(url, 1))))).timeout
 	var req := HTTPRequest.new()
@@ -363,12 +377,15 @@ func _process(_delta: float) -> void:
 		var st := GLTFState.new()
 		if doc.append_from_buffer(item["body"], "", st) == OK:
 			_cache_put(item["url"], doc.generate_scene(st))
-			_pending -= 1
+			_inflight.erase(item["url"])
+			_retry.erase(item["url"])   # a later re-download (LRU eviction) gets fresh retries
 		elif int(_retry.get(item["url"], 0)) < FETCH_RETRIES:
 			_retry[item["url"]] = int(_retry.get(item["url"], 0)) + 1
 			_refetch(item["url"])   # #9: corrupt/partial body -> re-download (the _ensure slot stays HELD)
 		else:
-			_pending -= 1
+			_failed[item["url"]] = true
+			_inflight.erase(item["url"])
+			print("GOGI_PLACEHOLDER scenery ", item["url"])
 		if Time.get_ticks_usec() - t0 > PARSE_BUDGET_US:
 			break
 
