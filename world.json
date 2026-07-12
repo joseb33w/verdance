@@ -74700,11 +74700,7 @@
    "model": "/cloud-0wenkpzrifygsnclmgvn/models/helicopter.glb",
    "name": "Helicopter",
    "scale": 6.0,
-   "seat": [
-    0.0,
-    1.1,
-    0.4
-   ]
+   "cab": "closed"
   },
   {
    "pos": [
@@ -74714,7 +74710,8 @@
    "profile": "plane",
    "model": "/cloud-0wenkpzrifygsnclmgvn/models/glider.glb",
    "name": "Jet Glider",
-   "scale": 6.5
+   "scale": 6.5,
+   "cab": "closed"
   },
   {
    "pos": [

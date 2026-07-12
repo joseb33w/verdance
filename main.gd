@@ -120,6 +120,7 @@ var hud_layer: CanvasLayer
 var stats: Label
 var hp_bar: ColorRect
 var _hud_btns: Dictionary = {}   # name -> Button, repositioned by _relayout_ui on resize
+var _world_rect := Rect2()       # authored grid bounds (chunk mode) — the always-on border clamp
 var _dismount_btn: Button = null   # contextual GET-OFF button: hidden on foot, shown while driving/riding
 
 
@@ -294,10 +295,30 @@ func _boot() -> void:
 			if is_instance_valid(v):
 				v.global_position = chunk_manager.nudge_out(v.global_position, 2.5)
 		interaction.terrain = chunk_manager.terrain   # Wave 3: grounds the stand-up-from-a-seat spot
+		_world_rect = chunk_manager.grid_world_rect()   # cached: the QA W-2 always-on border clamp reads it every tick
 		if director != null:
 			director.world_ready()   # beacons/regions/taming need terrain + vehicles
 	else:
 		scene_manager.start(world)
+
+
+# QA W-2: _terrain_border_walls only exist once the edge cell BUILDS, so a player sprinting at a
+# still-streaming border could walk off the authored grid onto empty terrain. Clamp the player
+# (and the driven vehicle — aircraft cross a border fastest) to the grid bounds every tick.
+func _clamp_to_world() -> void:
+	if not chunk_mode or _world_rect.size.x <= 0.0:
+		return
+	var lo_x := _world_rect.position.x + 1.0
+	var hi_x := _world_rect.end.x - 1.0
+	var lo_z := _world_rect.position.y + 1.0
+	var hi_z := _world_rect.end.y - 1.0
+	var pp := player.global_position
+	if pp.x < lo_x or pp.x > hi_x or pp.z < lo_z or pp.z > hi_z:
+		player.global_position = Vector3(clampf(pp.x, lo_x, hi_x), pp.y, clampf(pp.z, lo_z, hi_z))
+	if active_vehicle != null and is_instance_valid(active_vehicle):
+		var vp: Vector3 = active_vehicle.global_position
+		if vp.x < lo_x or vp.x > hi_x or vp.z < lo_z or vp.z > hi_z:
+			active_vehicle.global_position = Vector3(clampf(vp.x, lo_x, hi_x), vp.y, clampf(vp.z, lo_z, hi_z))
 
 
 func _physics_process(delta: float) -> void:
@@ -305,6 +326,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if director != null and director.input_locked():
 		return   # title screen open — the world holds still behind it
+	_clamp_to_world()   # border walls only exist once the edge cell BUILDS — this is the always-on containment
 	if active_vehicle != null:
 		# DRIVING: feed the car the SAME input vector that walks the player (one input path, no
 		# second binding). The vehicle integrates it in its own physics tick and parks the hidden
@@ -592,7 +614,13 @@ func _fade_near_camera_enemies() -> void:
 	var cp := cam.global_position
 	for e in streamer.enemies:
 		if is_instance_valid(e) and e.has_method("set_camera_near"):
-			e.set_camera_near(cp.distance_to(e.global_position))
+			# measure to the body CENTRE, not the feet origin — the camera rides ~1.5-2m up, so a
+			# feet-distance test never fired for tall models and a melee monster walled the frame
+			var bh := 1.8
+			var bhv = e.get("body_h")
+			if bhv != null:
+				bh = float(bhv)
+			e.set_camera_near(cp.distance_to(e.global_position + Vector3(0.0, 0.5 * bh, 0.0)))
 
 
 func _attack() -> void:

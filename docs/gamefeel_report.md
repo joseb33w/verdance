@@ -1,60 +1,49 @@
-# VERDANCE — Mobile Game-Feel / UX Review
+# VERDANCE — Mobile Game-Feel / UX Review (re-review after prior 4-P1 fix wave)
 
-**VERDICT: FAIL (0 P0, 4 P1 must-fix)** — touch, camera and layout fundamentals are solid; four phone-UX defects must be fixed before this feels shippable on a phone.
+**VERDICT: FAIL (0 P0, 1 P1 must-fix)** — touch, HUD-on-phone, rotation relayout and toast transience are now genuinely solid (all four prior P1s verified FIXED live); one camera defect remains in the must-fix class.
 
-Method: drove the real web export (local server mirroring the preview host, `/godot-assets/*` proxied) in software-GL Chromium at **portrait 400×860** and **landscape 860×400**, touch-first (CDP `dispatchTouchEvent` + touchscreen taps — no keyboard for any verified control), using the `gogiVerdance`/`gogiGetPlayer` state knobs plus 15 targeted screenshots (`/tmp/feel/*.png`).
-
----
-
-## ❗ P1 — Landscape phones get a ~31%-scale, unreadable HUD
-
-**Symptom (rendered at 860×400):** the game fills the screen and `_relayout_ui` keeps every button on-screen and unoverlapped — but the entire UI renders at **0.3125× design scale**. Measured from the live export (`dismount_rect` vpW/vpH): UI viewport = **2752×1280**. Stats text (22 UI px) → **6.9 CSS px** — unreadable (confirmed in `l3-hud.png`). Button labels (28 UI px) → ~9 px; buttons 72×41 CSS px (below the ~44 px touch-target minimum). Title-screen mode buttons → 144×26 CSS px, the hint line ~5 px (`l1-title.png`).
-**Root cause:** portrait-only base (720×1280, `canvas_items` + `expand` in project.godot) — in landscape the scale factor collapses to `min(860/720, 400/1280)=0.3125`. `main.gd _relayout_ui()` repositions rects but nothing rescales content for a landscape aspect.
-**Fix direction:** on resize, set `get_window().content_scale_factor` (or `content_scale_size`) so the SHORT edge maps to ~720 design px regardless of orientation — i.e. in landscape scale by `min(w,h)/720` instead of letting `expand` shrink everything; or derive font sizes/button sizes from `min(vp.x, vp.y)` in `_relayout_ui` + title screen.
-
-## ❗ P1 — Toasts are left-anchored at screen centre: long ones clip off the right edge and run behind STABLE
-
-**Symptom:** in portrait the boot toast renders as "Free Roam: the Four Reaches" and is **cut at the screen edge** (rest of the message never visible), passing behind the STABLE button (`p10-grant-toast.png`, `b1-after-use.png`). "The Spire City -- discovered!" ends exactly at the edge (`p3-toast.png`). Every toast starts at x = screen centre and grows rightward instead of being centred.
-**Root cause:** `verdance.gd _build_overlay_ui()` — `_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)` is applied while the label's size is 0, and a Label grows rightward from its rect position; `horizontal_alignment = CENTER` only aligns within that rect.
-**Fix direction:** anchor the label full-width (`PRESET_TOP_WIDE`, offsets for the y) and keep `HORIZONTAL_ALIGNMENT_CENTER`, or set `grow_horizontal = Control.GROW_DIRECTION_BOTH`. **Same defect in `_compass`** (the campaign objective line, `PRESET_CENTER_TOP`, offset_top 132) — that one is *persistent* HUD in campaign mode, so long objective lines will sit half off-screen (inferred from identical geometry; campaign not driven in this pass).
-**Transience itself is correct:** the toast faded fully within ~6 s and nothing stays pinned (`p3b-toast-gone.png`, `p9-idle.png` — no region label, no stale text). Do NOT pin it as part of the fix.
-
-## ❗ P1 — USE-to-board a vehicle intermittently does nothing
-
-**Symptom:** standing at the Roadster with the "USE ▸ Drive Roadster" prompt and floating DRIVE label showing, firing USE (same `try_use()` path as the on-screen button) boarded the car in ~1 s on 3 attempts, but **no-opped on 2 attempts even after 10–15 s of polling** (one on a fresh session, one on a repeat board after a previous mount/exit). No state change, no feedback — to a player the button feels dead until they mash it again. (Logs: `landscape.log` BOARDED:false after 15 s; `board2.log` attempt C false after a prior board/exit cycle; successes in `board.log`/`board2.log` A+B.)
-**Likely root cause:** `vehicle.gd use()` silently swallows the press while `_state` is `S_ENTERING/S_EXITING`, and `enter()` requires exactly `S_IDLE` — a lingering exit choreography (or a vehicle stuck out of IDLE after streaming) eats the tap.
-**Fix direction:** queue/retry the board request when the guard rejects it (or return the state to `S_IDLE` promptly on exit completion), and give audible/visual feedback when USE is swallowed. Boarding otherwise verified good: player visibly seated, contextual **DISMOUNT button appears in the stack correctly** (`b1-after-use.png`), driving camera eases behind, `use_label` clears while driving.
-
-## ❗ P1 — USE-hint text overlaps the SHEATHE button in portrait
-
-**Symptom:** the yellow "USE ▸ Drive Roadster" prompt renders directly across the SHEATHE button (text-on-text, both illegible) whenever an interactable is near — this is the core loop (chests, NPCs, vehicles) (`p5-board-prompt.png`).
-**Root cause:** `interaction.gd _build_ui()` — `prompt` at `PRESET_CENTER_BOTTOM` + `position(-160, -270)` lands at UI (200, ~1278); the weapon/potion button column occupies x 280–482, y 1212–1342 in the portrait 720×1548 viewport.
-**Fix direction:** move the prompt above the button rows (e.g. y ≈ −560 from bottom, or centre it over the joystick half), and centre rather than left-anchor it.
+Method: drove the real web export (`/workspace/repo/out` served locally, identical to preview) in software-GL Chromium, **touch-only for every verified control** (CDP `dispatchTouchEvent`; no keyboard), portrait **390×844** and landscape **860×400**, including an **in-session rotation both ways with no reload**. State assertions via `gogiGetPlayer()`/`gogiVerdance()` deltas; ~30 screenshots in `/workspace/verify/feel/`. Framerate not judged (SwiftShader).
 
 ---
 
-## ⚠️ Polish
+## ❗ P1 — A 4 m enemy at melee range still walls most of the portrait frame; the near-camera fade never fires
 
-- **Near-camera boarding label blows up to ~⅓ screen width and clips** — the Label3D DRIVE/RIDE prompt is perspective-scaled, so the label of the car you're standing next to renders as a giant clipped "DRI…" (`p6-mounted.png`, `p9-idle.png`), while distant labels are perfect (`l4-mounted.png`). Consider `fixed_size = true` with distance attenuation, or fade the label out under ~4 m (the HUD USE prompt already covers that range).
-- **Second button column intrudes into the joystick half in portrait** — POTION/SHEATHE/DISMOUNT start at UI x=281 (< 360 half-line), so drags starting on those buttons don't move the player; bottom-left corner remains fully usable. Consider narrowing buttons or moving the movement half-line.
-- **HP bar width is hardcoded 220 px** (`main.gd _update_stats`) while `_relayout_ui` scales buttons — harmless today, just inconsistent.
+**Symptom (rendered):** fighting a `fade_stalker` at melee (`nearest_enemy_d` 1.68), the monster's torso+legs fill ~⅔ of the portrait frame with the hero completely hidden behind it (`e1-melee-frame.png`); in a second, independent encounter its leg walls the left ~40 % of the frame (`w8-beacon-orbit.png`). It reads exactly like the "monster popup" this build already tries to prevent. Transient (bodies move), not on every attack — hence P1, not P0.
+**Root cause:** the mitigation exists but its distance test is measured to the wrong point. `main.gd _fade_near_camera_enemies()` → `enemy.gd set_camera_near()` hides the mesh when the camera is within `CAM_FADE_NEAR = 1.6` of **`e.global_position` — the enemy's ORIGIN, at its FEET on the ground**. The camera rides at ~1.5–2 m height, so even with the mesh pressed against the lens the camera-to-feet distance is ≥ ~1.6 m — the fade practically never triggers for a 4 m-tall model (`MAX_ENEMY_H` cap). A 4 m body 2–5 m from the lens legally fills the frame.
+**Fix direction:** measure against the body, not the feet — e.g. distance to `e.global_position + Vector3(0, 0.5*model_height, 0)`, and/or scale the threshold with height (`fade when cam_dist < max(1.6, 0.45 * model_height)`). Alternatively (or additionally) drop `MAX_ENEMY_H` to ~2.5–3 m. Keep it a fade/hide — do NOT turn this into any modal treatment.
 
-## ✅ Verified good (real touch/render evidence)
+---
 
-- **Canvas fills both aspects, zero letterbox:** canvas rect exactly 400×860 and 860×400; world renders edge-to-edge (`p2-hud.png`, `l3-hud.png`).
-- **Title screen works by touch at both aspects:** FREE ROAM tapped successfully first try in portrait AND landscape (audio tap-gate then mode select); layout centred and clean (`p1b-title.png`, `l1-title.png` — size issue filed under P1 #1).
-- **Touch joystick moves the player:** left-half touch drag-hold moved 10.4 u portrait / 4.8 u landscape, `on_floor` true throughout — grounded walk, no keyboard involved.
-- **Touch drag-look orbits:** right-half horizontal drags changed `cam_yaw` by 1.40 rad (portrait) / 2.88 rad (landscape); pitch is clamped in code (−74°…+34°), no floor/sky lock observed.
-- **Buttons fire via touch:** JUMP (on_floor→false, both aspects), ATTACK (enemy hp 120→58 across 3 taps at melee range), STABLE (panel opened, `p8-stable-panel.png`). DISMOUNT is the same Button widget, appears on board, rect on-screen at both aspects.
-- **Camera never walled at melee range:** two demons at 1.8–2.4 m — hero and both enemies fully framed, no full-screen mesh popup (`p4-enemy-close.png`); near-camera enemy fade (`_fade_near_camera_enemies`) + SpringArm hero-hide collapse guard present in code; no mesh smear in any of 15 captures.
-- **Damage is non-modal:** hp 100→19 during a real fight with zero dialogs/banners (`dialog_open` false throughout); feedback = hurt sfx + 0.15 s camera kick. (The red flash overlay is intentionally a no-op "by request" — acceptable, the shake still lands the hit.)
-- **No debug text ships:** all GOGI_* telemetry goes to the JS console only; the on-screen HUD is exactly Lv/HP/XP/Gold/Wpn/Inv + bar; the Inv line self-truncates at 46 chars ("…, V..." — `p2-hud.png`).
-- **Stable panel fits portrait**, centred, 6 mounts + CLOSE, readable (`p8-stable-panel.png`).
+## ⚠️ Polish (non-blocking)
+
+1. **Max pitch-up turns the hero into a wall.** Dragging the camera up (allowed to +34°) drives the SpringArm into the terrain behind, collapsing the camera to ~1.5–3 m; the hero then fills ~80 % of the frame and you can't actually see the sky you pitched up for (`p6-pitch-max.png`, `p9-back-portrait.png`, `l1-landscape-hud.png`). The 1.35 m avatar-hide guard doesn't trigger at that range. Consider raising the orbit pivot as pitch rises, or fading the avatar below ~2.5 m camera distance.
+2. **Near-camera vehicle Label3D still blows up/clips.** The perspective-scaled DRIVE label of a close vehicle renders oversized and clipped at the screen edge ("DR…" `w4-dismounted.png`, left-edge DRIVE in `w3-driving.png`). Prior-report item, still present. `fixed_size` or a <4 m fade would fix it (the HUD "USE > Drive X" prompt already covers that range).
+3. **Second button column intrudes into the joystick half (portrait).** POTION/SHEATHE/DISMOUNT start at UI x≈281 (< the 360 movement half-line); a move-drag started on them is eaten by the button. Bottom-left remains fully usable, so polish only. (Unchanged from prior review.)
+4. **No feedback during the post-mode-select load gap.** After tapping FREE ROAM the screen is pure black (only the grant toast) until terrain streams in (`p3-hud-idle.png`); several seconds even on device-class hardware would show nothing. A tiny "loading…" line or keeping the title art up until first frame would help.
+5. **The virtual joystick has no visual affordance** — left-half drag works fine (verified) but nothing on the HUD hints at it after the title-screen hint line is gone. A faint thumb ring at touch origin is the usual treatment.
+
+---
+
+## ✅ Verified good (live, touch-driven evidence)
+
+- **All 4 prior P1s are fixed in the shipped build:**
+  - **Landscape short-side rescale works** — after in-session rotation to 860×400 the UI viewport re-derives to 1548×720 (`dismount_rect` telemetry), stats/buttons readable (~15 px CSS, buttons ~128×52 CSS ≥ 44 px), nothing overlaps or overflows (`l1`, `l2`); title screen equally clean at landscape (`c3-landscape-title.png`). Rotation back to portrait relayouts again, no reload (`p9`).
+  - **Toasts are full-width centred** — long grant toast word-wraps dead-centre, no edge clipping, no STABLE collision (`p2-toast-early.png`).
+  - **USE-to-board works via touch** — "USE > Drive Roadster" label up, touch-tap on USE boarded first try; player visibly seated; contextual **DISMOUNT appears** and touch-dismount works; joystick drove the car 7.2 u (`w2`, `w3`, `w4`). (drive3's one "failure" was my probe standing out of range — the prompt had correctly cleared.)
+  - **USE prompt no longer overlaps SHEATHE** — now at 58 % height, clear of both button columns in every capture (`v1`, `e1`, `w7`).
+- **Region names are transient toasts, never pinned:** "The Forest -- discovered!", "The Spire City -- discovered!", and the re-entry variant "Entering The Spire City" each faded within ~3–6 s; zero region text in any later idle frame (`v1`→`v2`, `w9`→`w10`). Matches code (`verdance.gd` — no persistent region label by design).
+- **Touch joystick moves the player:** clean post-spawn measurements — 6.05 u portrait, 10.15 u landscape, `on_floor` true (no keyboard).
+- **Touch drag-look orbits:** right-half drag changed `cam_yaw` 0 → 1.329 rad; pitch clamped (−74°…+34°) — full down-drag gives a bird's-eye that still shows hero+world and recovers (`p5`), never a locked floor/sky stare.
+- **Buttons fire via touch:** JUMP (`on_floor`→false, portrait AND landscape), ATTACK (enemy hp 120→58 over touch taps at melee), USE (boarded), DISMOUNT (exited), STABLE (panel opens/closes, readable, `p8-stable.png`).
+- **Camera doesn't clip through walls:** pressed against a skyscraper and orbited — no through-mesh frames (`w5`, `w6`); SpringArm collapse guard confirmed live (hero auto-hidden when the arm collapsed at the beacon plinth, restored afterwards — `e2` vs `v2`).
+- **Damage is non-modal:** hp 100→28 across real fights; `dialog_open` false throughout; zero banners/dialogs in all ~30 captures; feedback = hurt sfx + 0.15 s camera kick (screen flash intentionally disabled — acceptable).
+- **No debug/developer text on screen:** HUD is exactly the Lv/HP/XP/Gold/Wpn/Inv block (Inv self-truncates), buttons, compass/toast; all `GOGI_*` telemetry is console-only.
+- **Campaign objective line fits:** "> Speak with Ranger Elda at the outpost [W 16m]" full-width centred under the stats block, clear of STABLE (`c2-campaign-idle.png`) — persistent by design (quest tracker), updates with distance.
+- **Thumb reach:** ATTACK/USE/JUMP/POTION/SHEATHE/DISMOUNT all in the bottom-right thumb arc at both aspects; tap-to-play and title buttons big and centred (`p1-title.png`).
 
 ## Could not verify (sandbox limits)
 
-- True simultaneous two-thumb multi-touch (move + look at once) — touches were driven sequentially via CDP; the code paths are index-separated (`move_idx`/`look_idx`) and look correct.
-- Real-device notch/home-indicator intrusion — bottom/right margins are ~5–10 CSS px in places; worth a safe-area pass on a physical phone.
-- Real GPU frame-rate feel (container is SwiftShader ~5 fps; layout/framing only was judged).
-- Campaign-mode compass line rendering (flagged above from code geometry, not a live campaign render).
-- In-container cert errors on direct `https://preview.myapping.com` fetches are a sandbox artifact (same-origin in production), not a game defect.
+- True simultaneous two-thumb multi-touch (move + look at once) — touches driven sequentially via CDP; code paths are index-separated (`move_idx`/`look_idx`) and look correct.
+- Real-device notch/safe-area — STABLE sits ~7 CSS px from the top edge and bottom buttons ~10 px from the bottom; worth a safe-area pass on hardware.
+- Real GPU framerate/feel (SwiftShader ~1–5 fps; composition/behaviour only was judged).
+- CONTINUE flow (save restore) — exercised by QA's pass, not re-driven here.

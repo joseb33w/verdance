@@ -35,8 +35,9 @@ var hurt_t := 0.0           # brief flinch hold so locomotion doesn't override t
 var _cur := ""
 
 
-const MAX_ENEMY_H := 4.0    # cap absurdly-large Meshy enemy models so a giant can't fill the frame ("monster popup" / full-screen mass); normal enemies are untouched
+const MAX_ENEMY_H := 3.0    # cap absurdly-large Meshy enemy models so a giant can't fill the frame ("monster popup" / full-screen mass); normal enemies are untouched. 4.0 still walled a portrait frame at melee range (gamefeel P1)
 const CAM_FADE_NEAR := 1.6  # hide the enemy mesh when this close to the CAMERA so a body pressed against the lens can't wall the view
+var body_h := 1.8           # model height after the MAX_ENEMY_H cap — the near-camera fade scales with it
 
 func setup(p: Node3D, model: Node, w: Node, index := 0, total := 1, etype := "skeleton") -> void:
 	player = p
@@ -82,6 +83,7 @@ func setup(p: Node3D, model: Node, w: Node, index := 0, total := 1, etype := "sk
 				m3.scale *= MAX_ENEMY_H / mab.size.y
 				mab = _model_aabb(m3)
 				m3.position.y -= mab.position.y   # re-ground the shrunk model's base to the origin
+			body_h = clampf(mab.size.y, 0.8, MAX_ENEMY_H)
 		anim = _find_anim(model)
 		if anim == null and model is Node3D:
 			# Streamed KayKit skeletons ship with NO embedded clips — retarget from
@@ -247,12 +249,14 @@ func _face(dir: Vector3) -> void:
 	look_at(Vector3(look.x, global_position.y, look.z), Vector3.UP)
 
 
-# Hide the enemy mesh when it's within CAM_FADE_NEAR of the CAMERA (fed by main._process): a body
-# pressed against the lens reads as a "popup". The SpringArm masks world-only, so it never pulls in on
-# enemies (layer 4) — main runs the distance test and calls this. (#6)
+# Hide the enemy mesh when the CAMERA is pressed against its BODY (fed by main._process): a body
+# against the lens reads as a "popup". Distance is measured to the body CENTRE and the threshold
+# scales with model height — measured to the feet origin, a 4m model legally walled the frame
+# (gamefeel P1: the fade never fired because the camera rides ~1.5-2m above the ground). The
+# SpringArm masks world-only, so it never pulls in on enemies (layer 4). (#6)
 func set_camera_near(cam_dist: float) -> void:
 	if mesh_root != null and is_instance_valid(mesh_root):
-		mesh_root.visible = cam_dist > CAM_FADE_NEAR
+		mesh_root.visible = cam_dist > maxf(CAM_FADE_NEAR, 0.45 * body_h)
 
 
 # Local-frame merged mesh bounds of a subtree (scale/ground decisions at setup, before the model
